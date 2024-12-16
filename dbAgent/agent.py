@@ -16,12 +16,19 @@ config = {
 def create_connection():
     global conn, cursor
     try:
-        conn = mysql.connector.connect(**config)
+        print("Attempting to connect to the database...")
+        conn = mysql.connector.connect(
+        host="ElkhamlichiOussama.mysql.pythonanywhere-services.com",
+        user="ElkhamlichiOussa",
+        password="Alhamdulillah",
+        database="ElkhamlichiOussa$purpose_ally"
+        )
         cursor = conn.cursor()
+        cursor.execute("USE ElkhamlichiOussa$purpose_ally")
+        print("Connection established successfully.")
     except mysql.connector.Error as err:
-        print(f"Error: {err}")
+        print(f"Error while connecting to MySQL: {err}")
         return None
-    
 
 
 def essential_seed(username, user_id, user_type, course_id):
@@ -32,21 +39,21 @@ def essential_seed(username, user_id, user_type, course_id):
         val = (user_id,)
         cursor.execute(sql1, val)
         username_user = cursor.fetchone()
-        if cursor.rowcount > 0: 
+        if cursor.rowcount > 0:
             sql2 = "SELECT goal_title FROM goals WHERE user_id = %s"
             val = (user_id,)
             cursor.execute(sql2, val)
             if cursor.rowcount > 0:
                 result = {
                     "message": f"<blockquote>🍃<b>{username_user}</b> مرحباً</blockquote>\n\n"
-                               "لقد سجّلت معنا أهدافًا في السابق. هل تُحب أن تتابع؟",
+                              "لقد سجّلت معنا أهدافًا في السابق. هل تُحب أن تتابع؟",
                     "reply_markup": InlineKeyboardMarkup([
                         [InlineKeyboardButton('!أجل', callback_data='indeed')],
                         [InlineKeyboardButton('أريد بداية جديدة', callback_data='new_start')]
                     ])
                 }
                 return result  # Return if result is set
-            
+
             # Remove cursor.fetchall() since you want to check rowcount only
             sql3 = "SELECT title FROM courses WHERE user_id= %s"
             val = (user_id,)
@@ -54,14 +61,14 @@ def essential_seed(username, user_id, user_type, course_id):
             if cursor.rowcount > 0:
                 result = {
                     "message": f"<blockquote>🍃<b>{username_user}</b> مرحباً</blockquote>\n\n"
-                               "لقد سجّلت معنا في أحد المسارات سابقاً. هل تريد أن تتابع؟",
+                              "لقد سجّلت معنا في أحد المسارات سابقاً. هل تريد أن تتابع؟",
                     "reply_markup": InlineKeyboardMarkup([
                         [InlineKeyboardButton('!أجل', callback_data='indeed')],
                         [InlineKeyboardButton('أريد بداية جديدة', callback_data='new_start')]
                     ])
                 }
                 return result  # Return if result is set
-            
+
         else:
             sql4 = "INSERT INTO users (username, username_id, user_type) VALUES (%s,%s,%s)"
             vals = (username, user_id, user_type)
@@ -71,8 +78,7 @@ def essential_seed(username, user_id, user_type, course_id):
 
         return result  # Ensure we return a result at the end
     except mysql.connector.Error as err:
-        return {"message": f"Error: {err}", "reply_markup": None}
-
+        return {"message": f"Errorrrrrrrrr: {err}", "reply_markup": None}
 def goals_seeding(goals_list, user_id):
     create_connection()
     try:
