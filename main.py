@@ -1,6 +1,8 @@
+from datetime import datetime
 import logging
 import os
 import json
+import requests
 from dotenv import load_dotenv
 from telegram import (BotCommand, ReplyKeyboardMarkup, ReplyKeyboardRemove,
                       Update, InlineKeyboardButton, InlineKeyboardMarkup)
@@ -251,7 +253,7 @@ async def show_demo(update, context):
         allows_multiple_answers=True,
     )
     keyboard = [
-        [InlineKeyboardButton("تعديل نص الأهداف؟", callback_data="edit_op")],
+        [InlineKeyboardButton("تعديل نص الأهداف", callback_data="edit_op")],
         [InlineKeyboardButton("تحديد وقت إرسال المهمات",
                               callback_data="set_cron_opt_call")]
     ]
@@ -398,12 +400,61 @@ async def edit_cron_time(update, context):
     cron_type = context.user_data.get('cron_settings')
     res = cron_seed(user_id, cron_type, new_cron_time)
     if res == True:
+        cron_command(user_id,new_cron_time)
         await update.message.reply_text(f"تم التحديث إلى:  {new_cron_time}")
     else:
         await update.message.reply_text("لا يمكن تحديث التوقيت في الوقت الراهن")
 
     return ConversationHandler.END
 
+
+async def cron_command(user_id, time):
+    # PythonAnywhere API URL
+    api_url = "https://www.pythonanywhere.com/api/v0/user/ElkhamlichiOussa/scheduled_tasks/"
+    
+    # Your PythonAnywhere API key
+    api_key = "a41772ed5416f9eab35151f7ab443c797562ba6a"
+    
+    # Cron job details
+    command = f"python3home/ElkhamlichiOussama/purpose_ally/dbAgent/tasks.py {user_id}"
+    # Schedule cron job to run daily at 8 AM
+
+    time_obj = datetime.strptime(time, "%H:%M")
+    
+    # Extract hour and minute
+    hour = time_obj.hour
+    minute = time_obj.minute
+    
+    # Convert to cron format: minute hour * * *
+    schedule = f"{minute} {hour} * * *"
+
+    print(schedule)    
+    # return cron_format
+    
+    # Create headers with API key for authentication
+    headers = {
+        "Authorization": f"Token {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    # Data to create a new cron job
+    data = {
+        "enabled": True,
+        "command": command,
+        "schedule": schedule,
+    }
+    
+    # Make the API request to create the cron job
+    response = requests.post(api_url, headers=headers, data=json.dumps(data))
+    
+    # Check if the cron job was created successfully
+    if response.status_code == 201:
+        print("Cron job created successfully.")
+    else:
+        print(f"Failed to create cron job: {response.status_code}")
+        print(response.text)
+
+    
 async def learning_tracks(update, context):
     await update.callback_query.message.reply_text('مسارات')
 
