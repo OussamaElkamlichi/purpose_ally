@@ -1,32 +1,49 @@
-@app.route('/tawasaw')
-def send_tasks():
-    base_url = "https://api.telegram.org/bot7461407614:AAFb52bSGp-2YRD2p7AEa5Por04Y72Obnc8/sendPoll"
-    polls = [
-        {"question": "🔻مُهِمَّاتٌ أُولَى \n ⚠️يرجى الحرص على القيام بحقيقة المهمة", "options": [
-            "صلاة الصبح جماعة", "صلاة الظهر جماعة", "صلاة العصر جماعة", "صلاة المغرب جماعة", "صلاة العشاء جماعة", "الوتر وقيام الليل", "أذكار الصباح", "أذكار المساء", "أذكار قبل وبعد النوم", "الورد اليومي للقرآن والسُّنة"], "thread": 134, "multi": True},
-        {"question": "🔻مُهِمَّاتٌ ثانية \n ⚠️يرجى الحرص على القيام بحقيقة المهمة.", "options": [
-            "غض البصر", "حفظ الفرج", "كف الأذى", "الأمر بالمعروف", "النهي عن المنكر", "الرياضة", "الترويح", "لتعارفوا", "ضبط التواجد في مواقع التواصل", "ضبط النوم"], "thread": 316, "multi": True}
-    ]
+import requests
+import json
 
-    responses = []
-    for poll in polls:
-        parameters = {
-            "chat_id": "-1002251207506",
-            "question": poll['question'],
-            "options": json.dumps(poll['options']),
-            "is_anonymous": False,
-            "allows_multiple_answers": poll['multi'],
-            "message_thread_id": poll['thread']
+# Cron-job.org API URL
+api_url = "https://api.cron-job.org/jobs"
+
+# Your cron-job.org API key
+api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
+
+# Cron job details
+command_url = "https://elkhamlichioussama.pythonanywhere.com/task/5264787237"
+
+# Desired schedule
+hour = '09'
+minute = '54'
+
+# Prepare cron job payload
+schedule = {
+    "job": {
+        "url": command_url,
+        "enabled": True,
+        "saveResponses": True,
+        "schedule": {
+            "timezone": "GMT",
+            "expiresAt": 0,
+            "hours": [hour],      # Specific hour
+            "minutes": [minute],  # Specific minute
+            "mdays": [-1],        # Every day of the month
+            "months": [-1],       # Every month
+            "wdays": [-1]         # Every day of the week
         }
-
-        resp = requests.get(base_url, data=parameters)
-        responses.append(resp.text)
-
-    base_url2 = "https://api.telegram.org/bot7461407614:AAFb52bSGp-2YRD2p7AEa5Por04Y72Obnc8/sendMessage"
-    message = {
-        "chat_id": -1002251207506,
-        "text": "✨️مرحبا أيها الفاضل ، كم جمعت من النقاط اليوم ؟ وهل قمت بحقيقة المهمات ؟",
-        "message_thread_id": 143
     }
-    requests.post(base_url, data=message)
-    return "\n".join(responses)
+}
+
+# Create headers with API key for authentication
+headers = {
+    "Authorization": f"Bearer {api_key}",
+    "Content-Type": "application/json"
+}
+
+# Make the API request to create the cron job
+response = requests.put(api_url, headers=headers, data=json.dumps(schedule))
+
+# Check if the cron job was created successfully
+if response.status_code == 200:
+    print("Cron job created successfully.")
+else:
+    print(f"Failed to create cron job: {response.status_code}")
+    print(response.text)

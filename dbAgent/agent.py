@@ -17,12 +17,7 @@ def create_connection():
     global conn, cursor
     try:
         print("Attempting to connect to the database...")
-        conn = mysql.connector.connect(
-        host="ElkhamlichiOussama.mysql.pythonanywhere-services.com",
-        user="ElkhamlichiOussa",
-        password="Alhamdulillah",
-        database="ElkhamlichiOussa$purpose_ally"
-        )
+        conn = mysql.connector.connect(**config)
         cursor = conn.cursor()
         cursor.execute("USE ElkhamlichiOussa$purpose_ally")
         print("Connection established successfully.")
@@ -33,7 +28,7 @@ def create_connection():
 
 def essential_seed(username, user_id, user_type, course_id):
     create_connection()
-    result = None  # Initialize result to ensure it's always defined
+    result = None  
     try:
         sql1 = "SELECT username FROM users WHERE username_id = %s"
         val = (user_id,)
