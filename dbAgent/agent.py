@@ -7,22 +7,18 @@ load_dotenv()
 conn = None
 cursor = None
 config = {
-    'user': os.getenv('DB_USER', 'root'),
-    'password': os.getenv('DB_PASSWORD', ''),
-    'host': os.getenv('DB_HOST', 'localhost'),
-    'database': os.getenv('DB_DATABASE', 'purpose_ally'),
+    'user': os.getenv('DB_USER'),
+    'password': os.getenv('DB_PASSWORD'),
+    'host': os.getenv('DB_HOST'),
+    'database': os.getenv('DB_DATABASE'),
 }
+
 
 def create_connection():
     global conn, cursor
     try:
         print("Attempting to connect to the database...")
-        conn = mysql.connector.connect(
-        host="ElkhamlichiOussama.mysql.pythonanywhere-services.com",
-        user="ElkhamlichiOussa",
-        password="Alhamdulillah",
-        database="ElkhamlichiOussa$purpose_ally"
-        )
+        conn = mysql.connector.connect(**config)
         cursor = conn.cursor()
         cursor.execute("USE ElkhamlichiOussa$purpose_ally")
         print("Connection established successfully.")
@@ -95,8 +91,8 @@ def goals_seeding(goals_list, user_id):
                 # print(sub_goal_vals)
                 cursor.execute(subgoals_sql, sub_goal_vals)
                 cursor.fetchall()
-        
-        conn.commit()          
+
+        conn.commit()
         return "تم الإدخال"
     except mysql.connector.Error as err:
         print("Error:", err)
@@ -108,27 +104,27 @@ def show_demo_db(user_id):
     show_val = (user_id,)
     cursor.execute(show_sql, show_val)
     res = cursor.fetchall()
-    
+
     for main_goal in res:
         goal_id = main_goal[0]
         goal_title = main_goal[1]
-        
+
         # Initialize a list to store sub-goals for each main goal
         subgoals = []
-        
+
         # Fetch sub-goals for the current main goal
         sql_sub = "SELECT subgoal_title, status FROM subgoals WHERE goal_id = %s"
         val_sub = (goal_id,)
         cursor.execute(sql_sub, val_sub)
         result = cursor.fetchall()
-        
+
         # Append each sub-goal as a dictionary to the subgoals list
         for sub_goal in result:
             subgoals.append({"subgoal_title": sub_goal[0], "status": sub_goal[1]})
-        
+
         # Store the list of sub-goals under the main goal title
         my_list[goal_title] = subgoals
-    
+
     return my_list
 
 def edit_prep(user_id):
@@ -189,6 +185,6 @@ def cron_seed(user_id, type, params):
 
     except Exception as e:
         print(f"Error: {e}")
-        conn.rollback() 
+        conn.rollback()
         return False
 

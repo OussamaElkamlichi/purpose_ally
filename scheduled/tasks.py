@@ -6,18 +6,18 @@ TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 
 def create_connection():
     try:
-        conn = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="purpose_ally"
-        )
         # conn = mysql.connector.connect(
-        #     host="ElkhamlichiOussama.mysql.pythonanywhere-services.com",
-        #     user="ElkhamlichiOussa",
-        #     password="Alhamdulillah",
-        #     database="ElkhamlichiOussa$purpose_ally"
+        #     host="localhost",
+        #     user="root",
+        #     password="",
+        #     database="purpose_ally"
         # )
+        conn = mysql.connector.connect(
+            host="ElkhamlichiOussama.mysql.pythonanywhere-services.com",
+            user="ElkhamlichiOussa",
+            password="Alhamdulillah",
+            database="ElkhamlichiOussa$purpose_ally"
+        )
         cursor = conn.cursor()
         return conn, cursor
     except mysql.connector.Error as err:
@@ -27,7 +27,7 @@ def create_connection():
 async def send_poll(bot, user_id, my_list):
     # Collect main goals as options
     main_goals = list(my_list.keys())
-    
+
     # Send the poll to the user
     await bot.send_poll(
         chat_id=user_id,
@@ -41,7 +41,6 @@ async def task(user_id):
     conn, cursor = create_connection()
     if not conn:
         return
-
     try:
         my_list = {}
         show_sql = "SELECT goal_id, goal_title FROM goals WHERE user_id = %s"
