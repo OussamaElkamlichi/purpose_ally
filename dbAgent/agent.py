@@ -2,34 +2,11 @@ import os
 from dotenv import load_dotenv
 import mysql.connector
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
-load_dotenv()
-conn = None
-cursor = None
-config = {
-    'user': os.getenv('DB_USER'),
-    'password': os.getenv('DB_PASSWORD'),
-    'host': os.getenv('DB_HOST'),
-    'database': os.getenv('DB_DATABASE'),
-}
-
-
-def create_connection():
-    global conn, cursor
-    try:
-        print("Attempting to connect to the database...")
-        conn = mysql.connector.connect(**config)
-        cursor = conn.cursor()
-        cursor.execute("USE ElkhamlichiOussa$purpose_ally")
-        print("Connection established successfully.")
-    except mysql.connector.Error as err:
-        print(f"Error while connecting to MySQL: {err}")
-        return None
-
+from classes.dbConnection import dbConnet
 
 def essential_seed(username, user_id, user_type, course_id):
-    create_connection()
-    result = None  # Initialize result to ensure it's always defined
+    cursor, conn = dbConnet.connect()
+    result = None  
     try:
         sql1 = "SELECT username FROM users WHERE username_id = %s"
         val = (user_id,)
@@ -75,8 +52,10 @@ def essential_seed(username, user_id, user_type, course_id):
         return result  # Ensure we return a result at the end
     except mysql.connector.Error as err:
         return {"message": f"Errorrrrrrrrr: {err}", "reply_markup": None}
+    finally:
+        dbConnet.close()
 def goals_seeding(goals_list, user_id):
-    create_connection()
+    cursor, conn = dbConnet.connect()
     try:
         sql = "INSERT INTO goals (user_id, goal_title, goal_description, status, target_date) VALUES (%s, %s, %s, %s, %s)"
         for main_goal, sub_goals in goals_list.items():
@@ -97,65 +76,82 @@ def goals_seeding(goals_list, user_id):
     except mysql.connector.Error as err:
         print("Error:", err)
         return f"Error: {err}"
+    finally:
+        dbConnet.close()
 
 def show_demo_db(user_id):
+    cursor, conn = dbConnet.connect()
     my_list = {}
-    show_sql = "SELECT goal_id, goal_title FROM goals WHERE user_id = %s"
-    show_val = (user_id,)
-    cursor.execute(show_sql, show_val)
-    res = cursor.fetchall()
+    try:
+        show_sql = "SELECT goal_id, goal_title FROM goals WHERE user_id = %s"
+        show_val = (user_id,)
+        cursor.execute(show_sql, show_val)
+        res = cursor.fetchall()
 
-    for main_goal in res:
-        goal_id = main_goal[0]
-        goal_title = main_goal[1]
+        for main_goal in res:
+            goal_id = main_goal[0]
+            goal_title = main_goal[1]
 
-        # Initialize a list to store sub-goals for each main goal
-        subgoals = []
+            # Initialize a list to store sub-goals for each main goal
+            subgoals = []
 
-        # Fetch sub-goals for the current main goal
-        sql_sub = "SELECT subgoal_title, status FROM subgoals WHERE goal_id = %s"
-        val_sub = (goal_id,)
-        cursor.execute(sql_sub, val_sub)
-        result = cursor.fetchall()
+            # Fetch sub-goals for the current main goal
+            sql_sub = "SELECT subgoal_title, status FROM subgoals WHERE goal_id = %s"
+            val_sub = (goal_id,)
+            cursor.execute(sql_sub, val_sub)
+            result = cursor.fetchall()
 
-        # Append each sub-goal as a dictionary to the subgoals list
-        for sub_goal in result:
-            subgoals.append({"subgoal_title": sub_goal[0], "status": sub_goal[1]})
+            # Append each sub-goal as a dictionary to the subgoals list
+            for sub_goal in result:
+                subgoals.append({"subgoal_title": sub_goal[0], "status": sub_goal[1]})
 
-        # Store the list of sub-goals under the main goal title
-        my_list[goal_title] = subgoals
+            # Store the list of sub-goals under the main goal title
+            my_list[goal_title] = subgoals
 
-    return my_list
+        return my_list
+    except mysql.connector.Error as err:
+        print("Error:", err)
+        return f"Error: {err}"
+    finally:
+        dbConnet.close()
 
 def edit_prep(user_id):
+    cursor, conn = dbConnet.connect()
     # Get main goals
-    show_sql = "SELECT goal_id, goal_title FROM goals WHERE user_id = %s"
-    show_val = (user_id,)
-    cursor.execute(show_sql, show_val)
-    res = cursor.fetchall()
+    try:
+        show_sql = "SELECT goal_id, goal_title FROM goals WHERE user_id = %s"
+        show_val = (user_id,)
+        cursor.execute(show_sql, show_val)
+        res = cursor.fetchall()
 
-    # Collect goals and sub-goals
-    main_list = []
-    for main_goal in res:
-        main_goals_list = {"type": "main", "id": main_goal[0], "text": main_goal[1]}
-        main_list.append(main_goals_list)
+        # Collect goals and sub-goals
+        main_list = []
+        for main_goal in res:
+            main_goals_list = {"type": "main", "id": main_goal[0], "text": main_goal[1]}
+            main_list.append(main_goals_list)
 
-        # Get sub-goals linked to the main goal
-        sql_sub = "SELECT subgoal_id, subgoal_title, status FROM subgoals WHERE goal_id = %s"
-        val_sub = (main_goal[0],)
-        cursor.execute(sql_sub, val_sub)
-        result = cursor.fetchall()
+            # Get sub-goals linked to the main goal
+            sql_sub = "SELECT subgoal_id, subgoal_title, status FROM subgoals WHERE goal_id = %s"
+            val_sub = (main_goal[0],)
+            cursor.execute(sql_sub, val_sub)
+            result = cursor.fetchall()
 
-        for sub_goal in result:
-            sub_goals_list = {"type": "sub", "id": sub_goal[0], "text": sub_goal[1]}
-            main_list.append(sub_goals_list)
+            for sub_goal in result:
+                sub_goals_list = {"type": "sub", "id": sub_goal[0], "text": sub_goal[1]}
+                main_list.append(sub_goals_list)
 
-    # print("***************************")
-    # print(main_list)
-    # print("***************************")
-    return main_list
+        # print("***************************")
+        # print(main_list)
+        # print("***************************")
+        return main_list
+    except mysql.connector.Error as err:
+        print("Error:", err)
+        return f"Error: {err}"
+    finally:
+        dbConnet.close()
 
 def updateGoal(user_id, new_goal_text, goal_type, goal_id, old_goal_text):
+    cursor, conn = dbConnet.connect()
     try:
         if goal_type == "main":
             query = "UPDATE goals SET goal_title = %s WHERE goal_id = %s"
@@ -171,7 +167,10 @@ def updateGoal(user_id, new_goal_text, goal_type, goal_id, old_goal_text):
         return "تم تحديث الهدف بنجاح."
     except Exception as e:
         return f"فشل التحديث: {str(e)}"
+    finally:
+        dbConnet.close()
 def cron_seed(user_id, type, params):
+    cursor, conn = dbConnet.connect
     try:
         cron_sql = "INSERT INTO scheduled (user_id, type, cron_pattern) VALUES (%s,%s,%s)"
         cron_vals = (user_id, type, params)
@@ -187,4 +186,6 @@ def cron_seed(user_id, type, params):
         print(f"Error: {e}")
         conn.rollback()
         return False
+    finally:
+        dbConnet.close()
 

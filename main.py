@@ -73,57 +73,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup,
     )
 
-
-# async def handle_user_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#     query = update.callback_query
-#     await query.answer()
-#     callback_data = query.data
-
-#     if callback_data == 'identification':
-#         await identification(update, context)
-#     elif callback_data == 'how_to_set_goals':
-#         await how_to_set_goals(update, context)
-#     elif callback_data == 'set_goals':
-#         await set_goals(update, context)
-#     elif callback_data == 'learning_tracks':
-#         await learning_tracks(update, context)
-#     elif callback_data == 'contact_us':
-#         await contact_us(update, context)
-#     elif callback_data == 'main_goal_req':
-#         await main_goal_req(update, context)
-#     elif callback_data == 'sub_goal_req':
-#         await main_goal_req(update, context)
-#     elif callback_data == "show_demo":
-#         await show_demo(update, context)
-#     elif callback_data == "edit_op":
-#         await edit_op(update, context)
-#     elif "***" in callback_data:
-#         goal_type, goal_id, goal_text = callback_data.split("***")
-#         context.user_data['goal_type'] = goal_type
-#         context.user_data['goal_id'] = goal_id
-#         context.user_data['old_goal_text'] = goal_text
-#         await update.callback_query.edit_message_text(
-#             f'<blockquote>تم اختيار 🎯</blockquote>\n{goal_text}\n'
-#             '<b>أكتب نص الهدف الصحيح</b>',
-#             parse_mode='HTML'  # Make sure parse_mode is passed as a keyword argument
-#         )
-#         return EDIT_GOAL
-#         # await edit_goal(update, context, goal_type, goal_id, old_goal_text)
-#     elif callback_data == "set_cron_opt_call":
-#         await set_cron_opt(update, context)
-#     elif callback_data == "edit_cron":
-#         await edit_cron(update, context)
-#     # elif callback_data == "validate_cron":
-#     #     await edit_cron_time(update, context)
-#         # return EDIT_CRON_TIME
-#         # cronOption = callback_data.split(":")[1]
-#         # context.user_data['cronOption'] = cronOption
-#     # elif callback_data == "set_cron_opt":
-#     #     return SET_CRON
-#     else:
-#         await handle_default(update, context)
-
-
 async def identification(update, context):
 
     file_path = os.path.join(dir_path, 'text-files/introduction.txt')
