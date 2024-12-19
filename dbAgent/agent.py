@@ -170,7 +170,7 @@ def updateGoal(user_id, new_goal_text, goal_type, goal_id, old_goal_text):
     finally:
         dbConnet.close()
 def cron_seed(user_id, type, params):
-    cursor, conn = dbConnet.connect
+    cursor, conn = dbConnet.co
     try:
         cron_sql = "INSERT INTO scheduled (user_id, type, cron_pattern) VALUES (%s,%s,%s)"
         cron_vals = (user_id, type, params)
@@ -186,6 +186,4 @@ def cron_seed(user_id, type, params):
         print(f"Error: {e}")
         conn.rollback()
         return False
-    finally:
-        dbConnet.close()
 

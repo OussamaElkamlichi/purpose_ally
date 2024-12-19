@@ -73,6 +73,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup,
     )
 
+
+
 async def identification(update, context):
 
     file_path = os.path.join(dir_path, 'text-files/introduction.txt')
@@ -149,11 +151,6 @@ async def sub_goal_req(update, context):
         else:
             # Proceed to end the input if goals count is sufficient
             goals_seed = context.user_data[user_id].launch(user_id)
-            # await update.message.reply_text(
-            #     'قاعدة البيانات تقول:\n'
-            #     f"<b>{goals_seed}</b>\n",
-            #     parse_mode='HTML'
-            # )
             keyboard = [[InlineKeyboardButton(
                 "كيف ستبدو أهدافك؟", callback_data="show_demo")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
