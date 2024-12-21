@@ -2,11 +2,13 @@ import os
 from dotenv import load_dotenv
 import mysql.connector
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from classes.dbConnection import dbConnet
+from classes.dbConnection import dbConnect
 
 def essential_seed(username, user_id, user_type, course_id):
-    cursor, conn = dbConnet.connect()
+    cursor, conn = dbConnect.connect()
     result = None  
+    if cursor is None or conn is None:
+        print("failed!!!!")
     try:
         sql1 = "SELECT username FROM users WHERE username_id = %s"
         val = (user_id,)
@@ -16,6 +18,7 @@ def essential_seed(username, user_id, user_type, course_id):
             sql2 = "SELECT goal_title FROM goals WHERE user_id = %s"
             val = (user_id,)
             cursor.execute(sql2, val)
+            cursor.fetchall()
             if cursor.rowcount > 0:
                 result = {
                     "message": f"<blockquote>🍃<b>{username_user}</b> مرحباً</blockquote>\n\n"
@@ -26,11 +29,12 @@ def essential_seed(username, user_id, user_type, course_id):
                     ])
                 }
                 return result  # Return if result is set
-
             # Remove cursor.fetchall() since you want to check rowcount only
             sql3 = "SELECT title FROM courses WHERE user_id= %s"
             val = (user_id,)
+            print("before")
             cursor.execute(sql3, val)
+            cursor.fetchall()
             if cursor.rowcount > 0:
                 result = {
                     "message": f"<blockquote>🍃<b>{username_user}</b> مرحباً</blockquote>\n\n"
@@ -46,6 +50,7 @@ def essential_seed(username, user_id, user_type, course_id):
             sql4 = "INSERT INTO users (username, username_id, user_type) VALUES (%s,%s,%s)"
             vals = (username, user_id, user_type)
             cursor.execute(sql4, vals)
+            cursor.fetchall()
             conn.commit()
             result = {"message": "don't send", "reply_markup": None}
 
@@ -53,9 +58,9 @@ def essential_seed(username, user_id, user_type, course_id):
     except mysql.connector.Error as err:
         return {"message": f"Errorrrrrrrrr: {err}", "reply_markup": None}
     finally:
-        dbConnet.close()
+        dbConnect.close()
 def goals_seeding(goals_list, user_id):
-    cursor, conn = dbConnet.connect()
+    cursor, conn = dbConnect.connect()
     try:
         sql = "INSERT INTO goals (user_id, goal_title, goal_description, status, target_date) VALUES (%s, %s, %s, %s, %s)"
         for main_goal, sub_goals in goals_list.items():
@@ -77,10 +82,10 @@ def goals_seeding(goals_list, user_id):
         print("Error:", err)
         return f"Error: {err}"
     finally:
-        dbConnet.close()
+        dbConnect.close()
 
 def show_demo_db(user_id):
-    cursor, conn = dbConnet.connect()
+    cursor, conn = dbConnect.connect()
     my_list = {}
     try:
         show_sql = "SELECT goal_id, goal_title FROM goals WHERE user_id = %s"
@@ -113,10 +118,10 @@ def show_demo_db(user_id):
         print("Error:", err)
         return f"Error: {err}"
     finally:
-        dbConnet.close()
+        dbConnect.close()
 
 def edit_prep(user_id):
-    cursor, conn = dbConnet.connect()
+    cursor, conn = dbConnect.connect()
     # Get main goals
     try:
         show_sql = "SELECT goal_id, goal_title FROM goals WHERE user_id = %s"
@@ -148,10 +153,10 @@ def edit_prep(user_id):
         print("Error:", err)
         return f"Error: {err}"
     finally:
-        dbConnet.close()
+        dbConnect.close()
 
 def updateGoal(user_id, new_goal_text, goal_type, goal_id, old_goal_text):
-    cursor, conn = dbConnet.connect()
+    cursor, conn = dbConnect.connect()
     try:
         if goal_type == "main":
             query = "UPDATE goals SET goal_title = %s WHERE goal_id = %s"
@@ -168,9 +173,9 @@ def updateGoal(user_id, new_goal_text, goal_type, goal_id, old_goal_text):
     except Exception as e:
         return f"فشل التحديث: {str(e)}"
     finally:
-        dbConnet.close()
+        dbConnect.close()
 def cron_seed(user_id, type, params):
-    cursor, conn = dbConnet.co
+    cursor, conn = dbConnect.connect()
     try:
         cron_sql = "INSERT INTO scheduled (user_id, type, cron_pattern) VALUES (%s,%s,%s)"
         cron_vals = (user_id, type, params)
