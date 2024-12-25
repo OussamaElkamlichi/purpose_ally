@@ -139,11 +139,11 @@ async def set_goals(update, context):
     # context.user_data['current_state'] = MAIN_GOAL
 
 async def main_goal_req(update, context):
-    print("Main goal state activated")
+    # print("Main goal state activated")
     context.user_data['main_goal'] = update.message.text
     await update.message.reply_text('main_goal_req')
     await update.message.reply_text('hello')
-    print('SUB GOALS IS PRINTED')
+    # print('SUB GOALS IS PRINTED')
     return SUB_GOALS
 
 async def sub_goal_req(update, context):

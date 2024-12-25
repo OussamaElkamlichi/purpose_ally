@@ -15,36 +15,35 @@ def essential_seed(username, user_id, user_type, course_id):
         cursor.execute(sql1, val)
         username_user = cursor.fetchone()
         if cursor.rowcount > 0:
+            username = username_user[0] 
             sql2 = "SELECT goal_title FROM goals WHERE user_id = %s"
             val = (user_id,)
             cursor.execute(sql2, val)
             cursor.fetchall()
             if cursor.rowcount > 0:
                 result = {
-                    "message": f"<blockquote>🍃<b>{username_user}</b> مرحباً</blockquote>\n\n"
+                    "message": f"<blockquote>🍃<b>{username}</b> ،مرحباً</blockquote>\n\n"
                               "لقد سجّلت معنا أهدافًا في السابق. هل تُحب أن تتابع؟",
                     "reply_markup": InlineKeyboardMarkup([
-                        [InlineKeyboardButton('!أجل', callback_data='indeed')],
+                        [InlineKeyboardButton('أجل !', callback_data='indeed')],
                         [InlineKeyboardButton('أريد بداية جديدة', callback_data='new_start')]
                     ])
                 }
-                return result  # Return if result is set
-            # Remove cursor.fetchall() since you want to check rowcount only
+                return 200, result  
             sql3 = "SELECT title FROM courses WHERE user_id= %s"
             val = (user_id,)
-            print("before")
             cursor.execute(sql3, val)
             cursor.fetchall()
             if cursor.rowcount > 0:
                 result = {
-                    "message": f"<blockquote>🍃<b>{username_user}</b> مرحباً</blockquote>\n\n"
+                    "message": f"<blockquote> 🍃 <b>{username}</b> ،مرحباً</blockquote>\n\n"
                               "لقد سجّلت معنا في أحد المسارات سابقاً. هل تريد أن تتابع؟",
                     "reply_markup": InlineKeyboardMarkup([
-                        [InlineKeyboardButton('!أجل', callback_data='indeed')],
+                        [InlineKeyboardButton('أجل !', callback_data='indeed')],
                         [InlineKeyboardButton('أريد بداية جديدة', callback_data='new_start')]
                     ])
                 }
-                return result  # Return if result is set
+                return 200, result  
 
         else:
             sql4 = "INSERT INTO users (username, username_id, user_type) VALUES (%s,%s,%s)"
@@ -52,11 +51,13 @@ def essential_seed(username, user_id, user_type, course_id):
             cursor.execute(sql4, vals)
             cursor.fetchall()
             conn.commit()
-            result = {"message": "don't send", "reply_markup": None}
+            result = {
+                "message":"done"
+            }
 
-        return result  # Ensure we return a result at the end
+        return 201, result 
     except mysql.connector.Error as err:
-        return {"message": f"Errorrrrrrrrr: {err}", "reply_markup": None}
+        return {"message": f"Error: {err}", "reply_markup": None}
     finally:
         dbConnect.close()
 def goals_seeding(goals_list, user_id):
@@ -174,6 +175,27 @@ def updateGoal(user_id, new_goal_text, goal_type, goal_id, old_goal_text):
         return f"فشل التحديث: {str(e)}"
     finally:
         dbConnect.close()
+
+def deleteGoal(user_id, new_goal_text, goal_type, goal_id, old_goal_text):
+    cursor, conn = dbConnect.connect()
+    try:
+        if goal_type == "main":
+            query = "DELETE FROM goals WHERE goal_id = %s"
+        elif goal_type == "sub":
+            query = "DELETE FROM subgoals WHERE subgoal_id = %s"
+        else:
+            return "نوع الهدف غير معروف."
+
+        values = (goal_id,)
+        cursor.execute(query, values)
+        conn.commit()
+        return "تم حذف الهدف بنجاح."
+    except Exception as e:
+        return f"فشل الحذف: {str(e)}"
+    finally:
+        dbConnect.close()
+
+
 def cron_seed(user_id, type, params):
     cursor, conn = dbConnect.connect()
     try:

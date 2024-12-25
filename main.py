@@ -10,7 +10,7 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes, ConversationHandler, MessageHandler, filters)
 from classes.userGoals import UserGoals
 from telegram.error import BadRequest
-from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed
+from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 app = Application.builder().token(TOKEN).build()
 dir_path = os.getcwd()
@@ -35,43 +35,42 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = update.message.from_user.username
     user_type = update.message.chat.type
     course_id = 0
-    result = essential_seed(username, user_id, user_type, course_id)
+    response_code, result = essential_seed(username, user_id, user_type, course_id)
     message = result.get("message", "An error occurred.")
     reply_markup = result.get("reply_markup")
-    if message not in ["don't send", "Error: Unread result found"]:
+    if response_code == 200:
         await update.message.reply_text(
             text=message,
             parse_mode='HTML',
             reply_markup=reply_markup,
         )
+    elif response_code == 201:
+        projectName = 'شريك الهمّة'
 
-    projectName = 'شريك الهمّة'
-    # await context.bot.send_message(chat_id=update.effective_chat.id, text=f"{result}\nWelcome to {projectName}!")
+        keyboard = [
+            [InlineKeyboardButton('🤖 تعريف شريك الهمة',
+                                  callback_data='identification')],
+            [InlineKeyboardButton('🤔 كيف أحدّد أهدافي',
+                                  callback_data='how_to_set_goals')],
+            [InlineKeyboardButton('📋 تسجيل أهدافي الخاصة',
+                                  callback_data='set_goals')],
+            [InlineKeyboardButton('📚 الاطلاع على مسارات طلب العلم',
+                                  callback_data='learning_tracks')],
+            [InlineKeyboardButton('📥 الاتصال بنا', callback_data='contact_us')]
+        ]
 
-    keyboard = [
-        [InlineKeyboardButton('🤖 تعريف شريك الهمة',
-                              callback_data='identification')],
-        [InlineKeyboardButton('🤔 كيف أحدّد أهدافي',
-                              callback_data='how_to_set_goals')],
-        [InlineKeyboardButton('📋 تسجيل أهدافي الخاصة',
-                              callback_data='set_goals')],
-        [InlineKeyboardButton('📚 الاطلاع على مسارات طلب العلم',
-                              callback_data='learning_tracks')],
-        [InlineKeyboardButton('📥 الاتصال بنا', callback_data='contact_us')]
-    ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text(
-        f'🌹السلام عليكم <b>{username}</b>\n'
-        '\n'
-        f'مرحباً بكم معنا في <b>{projectName}</b> رفيقكم في تحقيق أهدافكم وشريككم نحو مستوى وعي أرقى 🍃\n'
-        '\n'
-        ' اختر(ي) طلبك من القائمة أسفله واستعن بالله ولا تعجز✔️'
-        '\n',
-        parse_mode='HTML',
-        reply_markup=reply_markup,
-    )
+        await update.message.reply_text(
+            f'🌹السلام عليكم <b>{username}</b>\n'
+            '\n'
+            f'مرحباً بكم معنا في <b>{projectName}</b> رفيقكم في تحقيق أهدافكم وشريككم نحو مستوى وعي أرقى 🍃\n'
+            '\n'
+            ' اختر(ي) طلبك من القائمة أسفله واستعن بالله ولا تعجز✔️'
+            '\n',
+            parse_mode='HTML',
+            reply_markup=reply_markup,
+        )
 
 
 
@@ -199,7 +198,7 @@ async def show_demo(update, context):
         allows_multiple_answers=True,
     )
     keyboard = [
-        [InlineKeyboardButton("تعديل نص الأهداف", callback_data="edit_op")],
+        [InlineKeyboardButton("تعديل/حذف نص الأهداف", callback_data="edit_op")],
         [InlineKeyboardButton("تحديد وقت إرسال المهمات",
                               callback_data="set_cron_opt_call")]
     ]
@@ -223,7 +222,7 @@ async def edit_op(update, context):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.callback_query.message.reply_text(
-        '<blockquote>اختر ما تريد تعديله</blockquote>\n',
+        '<blockquote>اختر ما تريد حذفه أو تعديله</blockquote>\n',
         reply_markup=reply_markup,
         parse_mode='HTML'
     )
@@ -239,8 +238,10 @@ async def edit_goal_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
         context.user_data['old_goal_text'] = goal_text
 
         await query.edit_message_text(
-            f'<blockquote>تم اختيار 🎯</blockquote>\n{goal_text}\n'
-            '<b>أكتب نص الهدف الصحيح</b>',
+            f'<blockquote>تم اختيار 🎯</blockquote>\n{goal_text}\n\n'
+            'اكتب(ي) نص الهدف صحيحاً \n'
+            'اكتب(ي) "حذف" لحذف الهدف\n\n'
+            '<b>ملاحظة: </b> حذف الهدف الرئيسي يتبعه حذف الأهداف الفرعية \n',
             parse_mode='HTML'
         )
         return EDIT_GOAL
@@ -253,9 +254,14 @@ async def edit_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     goal_id = context.user_data.get('goal_id')
     old_goal_text = context.user_data.get('old_goal_text')
 
-    result = updateGoal(update.message.from_user.id,
+    if new_goal_text in ["حذف","حدف"]:
+        res = deleteGoal(update.message.from_user.id,
                         new_goal_text, goal_type, goal_id, old_goal_text)
-    await update.message.reply_text(result, parse_mode='HTML')
+        await update.message.reply_text(res, parse_mode="HTML")
+    else:
+        result = updateGoal(update.message.from_user.id,
+                        new_goal_text, goal_type, goal_id, old_goal_text)
+        await update.message.reply_text(result, parse_mode='HTML')
 
     return ConversationHandler.END
 
@@ -358,24 +364,17 @@ async def edit_cron_time(update, context):
 
 
 async def cron_command(user_id, time):
-    # Cron-job.org API URL
     api_url = "https://api.cron-job.org/jobs"
 
-    # Your cron-job.org API key
     api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
 
-    # Cron job details
     command_url = f"https://ElkhamlichiOussama.pythonanywhere.com/task/{user_id}"  # Replace with the actual URL for your task
-    print(command_url)
-    # Schedule cron job to run at the specified time
+
     time_obj = datetime.strptime(time, "%H:%M")
 
-    # Extract hour and minute
     hour = time_obj.hour
     minute = time_obj.minute
-    print(type(hour))
-    print(type(minute))
-    # Prepare cron job schedule (cron-job.org takes time in hour and minute, not the standard cron format)
+
     schedule = {
         "job": {
         "url": command_url,
@@ -393,23 +392,18 @@ async def cron_command(user_id, time):
         }
     }
 
-    print(schedule)
-
-    # Create headers with API key for authentication
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
 
-    # Make the API request to create the cron job
     response = requests.put(api_url, headers=headers, data=json.dumps(schedule))
 
-    # Check if the cron job was created successfully
     if response.status_code == 200:
-        print("Cron job created successfully.")
+        # print("Cron job created successfully.")
         return 200, "Cron job success"
     else:
-        print(f"Failed to create cron job: {response.status_code}")
+        # print(f"Failed to create cron job: {response.status_code}")
         return response.status_code, "Cron job denied"
 
 async def learning_tracks(update, context):

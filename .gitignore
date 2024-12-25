@@ -1,4 +1,5 @@
-__pycache__/
+dbAgent/__pycache__/
+classes/__pycache__/
 *.pyc
 
 .env
