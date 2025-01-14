@@ -90,7 +90,7 @@ async def how_to_set_goals(update, context):
         )
 
 async def set_goals(update, context):
-
+    await update.callback_query.answer()
     await update.callback_query.message.reply_text(
         text='تم اختيار: <b>تسجيل أهدافي الخاصة📋</b>\n'
              '\n'
@@ -178,6 +178,7 @@ async def sub_goal_req(update, context):
     return SUB_GOALS
 
 async def show_demo(update, context):
+    await update.callback_query.answer()
     user_id = update.callback_query.from_user.id
     goals_list = show_demo_db(user_id)
     main_goals = list(goals_list.keys())  # Collect all main goals as options
@@ -202,6 +203,7 @@ async def show_demo(update, context):
     )
 
 async def edit_op(update, context):
+    await update.callback_query.answer()
     user_id = update.callback_query.from_user.id
     goals_list = edit_prep(user_id)
 
@@ -270,6 +272,7 @@ async def set_cron_opt(update, context):
     return SET_CRON
 
 async def set_cron(update, context):
+    await update.callback_query.answer()
     selected_option = update.callback_query.data.split(":")[1]
     if selected_option == "daily":
         await update.callback_query.message.reply_text(
@@ -320,10 +323,10 @@ async def edit_cron_time(update, context):
     user_id = update.message.from_user.id
     new_cron_time = update.message.text
     cron_type = context.user_data.get('cron_settings')
-    res = cron_seed(user_id, cron_type, new_cron_time)
-    if res == True:
-        status_code, message = await cron_command(user_id,new_cron_time)
-        if status_code == 200:
+    status_code, message, jobId = await cron_command(user_id,new_cron_time)
+    if status_code == 200:
+        res = cron_seed(user_id, cron_type, new_cron_time, jobId)
+        if res == True:
             await update.message.reply_text(f"تم التحديث إلى:  {new_cron_time}")
         else:
             await update.message.reply_text(f" حدث خطأ : { status_code}")
@@ -367,10 +370,11 @@ async def cron_command(user_id, time):
     }
 
     response = requests.put(api_url, headers=headers, data=json.dumps(schedule))
-
+    response_data = response.json()
     if response.status_code == 200:
-        # print("Cron job created successfully.")
-        return 200, "Cron job success"
+        job_id = response_data['jobId']
+        print(job_id)
+        return 200, "Cron job success", job_id
     else:
         # print(f"Failed to create cron job: {response.status_code}")
         return response.status_code, "Cron job denied"
@@ -409,7 +413,7 @@ async def edit_cron_command(user_id, time, job_id):
     return (200, "Cron job updated") if response.status_code == 200 else (response.status_code, "Update failed")
 
 async def old_goals(update, context):
-
+    await update.callback_query.answer()
     user_id = update.callback_query.from_user.id
     goals_list = show_demo_db(user_id)
     main_goals = list(goals_list.keys())  # Collect all main goals as options
@@ -450,7 +454,7 @@ async def old_goals(update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.callback_query.message.reply_text(
         '<blockquote>تفاصيل الأهداف🍃</blockquote>\n'
-        f"\n{formatted_text}\n\n"
+        f"\n{formatted_text}\n"
         f"<b>الإرسال اليومي على الساعة:</b> {time} ",
         reply_markup=reply_markup,
         parse_mode='HTML'
@@ -470,10 +474,10 @@ async def handle_confirm_cron(update, context):
         user_id = query.from_user.id
         cron_type = context.user_data.get('cron_settings')
         time = context.user_data.get('cron_time')
-        res = cron_seed(user_id, cron_type, time)
-        if res:
-            status_code, message = await cron_command(user_id, time)
-            if status_code == 200:
+        status_code, message, jobId = await cron_command(user_id, time)
+        if status_code == 200:
+            res = cron_seed(user_id, cron_type, time, jobId)   
+            if res:
                 await query.message.reply_text(
                     "<blockquote>وفقكم الله وأعانكم 🍃</blockquote>\n",
                     parse_mode='HTML'

@@ -1,0 +1,3 @@
+- Edit the cron job from [cron jobs trigger](cron-job.org).
+- Edit the cron job ID from `scheduled` table.
+- Start `new beginning` logic.

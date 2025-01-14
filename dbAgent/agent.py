@@ -193,7 +193,7 @@ def deleteGoal(user_id, new_goal_text, goal_type, goal_id, old_goal_text):
     finally:
         dbConnect.close()
 
-def cron_seed(user_id, type, params):
+def cron_seed(user_id, type, params, jobId):
     cursor, conn = dbConnect.connect()
     try:
         request_sql = "SELECT user_id FROM scheduled WHERE user_id = %s"
@@ -201,16 +201,14 @@ def cron_seed(user_id, type, params):
         cursor.execute(request_sql, request_values)
         cursor.fetchall()
         if cursor.rowcount > 0:  # Check rowcount immediately after SELECT
-            request_sql = "UPDATE scheduled SET type = %s, cron_pattern = %s WHERE user_id = %s"
-            request_values = (type, params, user_id)
-            print((type, params, user_id))
+            request_sql = "UPDATE scheduled SET type = %s, cron_pattern = %s, job_id=%s WHERE user_id = %s"
+            request_values = (type, params, jobId, user_id)
             cursor.execute(request_sql, request_values)
             conn.commit()
-            print(cursor.rowcount)
             return cursor.rowcount > 0 # Return True if any rows were updated, False otherwise
         else:
-            cron_sql = "INSERT INTO scheduled (user_id, type, cron_pattern) VALUES (%s, %s, %s)"
-            cron_vals = (user_id, type, params)
+            cron_sql = "INSERT INTO scheduled (user_id, type, cron_pattern, job_id) VALUES (%s, %s, %s, %s)"
+            cron_vals = (user_id, type, params, jobId)
             cursor.execute(cron_sql, cron_vals)
             conn.commit()
             print("ok3")
