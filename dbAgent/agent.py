@@ -60,6 +60,7 @@ def essential_seed(username, user_id, user_type, course_id):
         return {"message": f"Error: {err}", "reply_markup": None}
     finally:
         dbConnect.close()
+
 def goals_seeding(goals_list, user_id):
     cursor, conn = dbConnect.connect()
     try:
@@ -146,9 +147,6 @@ def edit_prep(user_id):
                 sub_goals_list = {"type": "sub", "id": sub_goal[0], "text": sub_goal[1]}
                 main_list.append(sub_goals_list)
 
-        # print("***************************")
-        # print(main_list)
-        # print("***************************")
         return main_list
     except mysql.connector.Error as err:
         print("Error:", err)
@@ -195,22 +193,49 @@ def deleteGoal(user_id, new_goal_text, goal_type, goal_id, old_goal_text):
     finally:
         dbConnect.close()
 
-
 def cron_seed(user_id, type, params):
     cursor, conn = dbConnect.connect()
     try:
-        cron_sql = "INSERT INTO scheduled (user_id, type, cron_pattern) VALUES (%s,%s,%s)"
-        cron_vals = (user_id, type, params)
-        cursor.execute(cron_sql, cron_vals)
-        conn.commit()
-
-        if cursor.rowcount > 0:
-            return True
+        request_sql = "SELECT user_id FROM scheduled WHERE user_id = %s"
+        request_values = (user_id,)
+        cursor.execute(request_sql, request_values)
+        cursor.fetchall()
+        if cursor.rowcount > 0:  # Check rowcount immediately after SELECT
+            request_sql = "UPDATE scheduled SET type = %s, cron_pattern = %s WHERE user_id = %s"
+            request_values = (type, params, user_id)
+            print((type, params, user_id))
+            cursor.execute(request_sql, request_values)
+            conn.commit()
+            print(cursor.rowcount)
+            return cursor.rowcount > 0 # Return True if any rows were updated, False otherwise
         else:
-            return False
-
+            cron_sql = "INSERT INTO scheduled (user_id, type, cron_pattern) VALUES (%s, %s, %s)"
+            cron_vals = (user_id, type, params)
+            cursor.execute(cron_sql, cron_vals)
+            conn.commit()
+            print("ok3")
+            return cursor.rowcount > 0
     except Exception as e:
         print(f"Error: {e}")
         conn.rollback()
         return False
+    finally:
+        dbConnect.close()
 
+def get_cron_time(user_id):
+    cursor, conn = dbConnect.connect()
+    try:
+        request = "SELECT cron_pattern FROM scheduled WHERE user_id=%s"
+        request_values = (user_id,)
+        cursor.execute(request,request_values)
+        time = cursor.fetchone()
+        if time:
+            return 200, time[0]
+        else:
+            return 404, None
+    except Exception as e:
+        print(f"Erro: {e} ")
+        conn.rollback()
+        return 500, False
+    finally:
+        dbConnect.close()

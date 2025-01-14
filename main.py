@@ -10,12 +10,12 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes, ConversationHandler, MessageHandler, filters)
 from classes.userGoals import UserGoals
 from telegram.error import BadRequest
-from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal
+from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 app = Application.builder().token(TOKEN).build()
 dir_path = os.getcwd()
-IDENTIFICATION, HOW_TO_SET_GOALS, SET_GOALS, SEEK_KNOWLEDGE, CONTACT_US, MAIN_GOAL, SUB_GOALS, EDIT_GOAL, SET_CRON, SET_CRON_TIME, SET_CRON_WEEKDAY , EDIT_CRON_TIME, VALIDATE_CRON= range(
-    13)
+IDENTIFICATION, HOW_TO_SET_GOALS, SET_GOALS, SEEK_KNOWLEDGE, CONTACT_US, MAIN_GOAL, SUB_GOALS, EDIT_GOAL, SET_CRON, SET_CRON_TIME, SET_CRON_WEEKDAY , EDIT_CRON_TIME, VALIDATE_CRON, CONFIRM_CRON_TIME= range(
+    14)
 
 commands = [
     BotCommand("start", '🤖 تعريف شريك الهمة'),
@@ -29,16 +29,15 @@ commands = [
 async def set_command_menu():
     await app.bot.set_my_commands(commands)
 
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     username = update.message.from_user.username
     user_type = update.message.chat.type
     course_id = 0
     response_code, result = essential_seed(username, user_id, user_type, course_id)
-    message = result.get("message", "An error occurred.")
-    reply_markup = result.get("reply_markup")
     if response_code == 200:
+        message = result.get("message", "An error occurred.")
+        reply_markup = result.get("reply_markup")
         await update.message.reply_text(
             text=message,
             parse_mode='HTML',
@@ -72,15 +71,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup,
         )
 
-
-
 async def identification(update, context):
 
     file_path = os.path.join(dir_path, 'text-files/introduction.txt')
     with open(file_path, 'r', encoding='utf-8') as welcome_file:
         file_data = welcome_file.read()
     await update.callback_query.message.reply_text(file_data.replace('\n', '\n'), parse_mode='HTML')
-
 
 async def how_to_set_goals(update, context):
     await update.callback_query.answer(text="الملف في طريقه...")
@@ -93,10 +89,9 @@ async def how_to_set_goals(update, context):
             caption="اقرأ الملف بتمعّن ولا تتردد في السؤال📑"
         )
 
-
 async def set_goals(update, context):
 
-    await update.callback_query.edit_message_text(
+    await update.callback_query.message.reply_text(
         text='تم اختيار: <b>تسجيل أهدافي الخاصة📋</b>\n'
              '\n'
              'المرجو كتابة الهدف الرئيسي وإرساله، ومتابعة <b>الإرشادات</b>\n\n'
@@ -105,7 +100,6 @@ async def set_goals(update, context):
     )
 
     return MAIN_GOAL
-
 
 async def main_goal_req(update, context):
     user_id = update.message.from_user.id
@@ -128,7 +122,6 @@ async def main_goal_req(update, context):
     context.user_data[user_id].current_main_goal = main_goal
 
     return SUB_GOALS
-
 
 async def sub_goal_req(update, context):
     user_id = update.message.from_user.id
@@ -184,7 +177,6 @@ async def sub_goal_req(update, context):
 
     return SUB_GOALS
 
-
 async def show_demo(update, context):
     user_id = update.callback_query.from_user.id
     goals_list = show_demo_db(user_id)
@@ -208,8 +200,6 @@ async def show_demo(update, context):
         reply_markup=reply_markup,
         parse_mode='HTML'
     )
-
-
 
 async def edit_op(update, context):
     user_id = update.callback_query.from_user.id
@@ -246,7 +236,6 @@ async def edit_goal_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return EDIT_GOAL
 
-
 async def edit_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     new_goal_text = update.message.text
@@ -265,7 +254,6 @@ async def edit_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return ConversationHandler.END
 
-
 async def set_cron_opt(update, context):
     keyboard = [
         [InlineKeyboardButton("يوميًا", callback_data="cronOption:daily")],
@@ -280,7 +268,6 @@ async def set_cron_opt(update, context):
         parse_mode='HTML'
     )
     return SET_CRON
-
 
 async def set_cron(update, context):
     selected_option = update.callback_query.data.split(":")[1]
@@ -316,35 +303,18 @@ async def set_cron(update, context):
     else:
         await update.callback_query.message.reply_text("خيارات غير معروفة.")
 
-
 async def set_cron_time(update, context):
-    keyboard = [[  InlineKeyboardButton("تعديل", callback_data="edit_cron_launch")]]
+    keyboard = [[  InlineKeyboardButton("تعديل", callback_data="edit_cron_launch")],
+    [  InlineKeyboardButton("موافق", callback_data="ok_response")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    time = update.message.text
-    user_id = update.message.from_user.id
-    cron_type = context.user_data.get('cron_settings')
-    res = cron_seed(user_id, cron_type, time)
-    if res == True:
-        await update.message.reply_text(
-        "<blockquote>تم تحديد وقت الإرسال ⏰</blockquote>\n"
-        f"<b>يومياً على الساعة:  {time}</b> ",
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-        )
-    else:
-        await update.message.reply_text(
-        "<blockquote>لا يمكن تحديد التوقيت</blockquote>\n"
-        f"<b>خطأ داخلي</b> ",
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-        )
-    return ConversationHandler.END
-
-async def edit_cron(update, context):
-    await update.callback_query.message.reply_text(
-    "المرجو كتابة التوقيت بدقّة (مثال: 06:00)"
+    context.user_data['cron_time'] = update.message.text
+    await update.message.reply_text(
+            "<blockquote>تم تحديد وقت الإرسال ⏰</blockquote>\n"
+            f"<b>يومياً على الساعة:  {context.user_data.get('cron_time')}</b> ",
+            reply_markup=reply_markup,
+            parse_mode='HTML'
     )
-    return EDIT_CRON_TIME
+    return CONFIRM_CRON_TIME
 
 async def edit_cron_time(update, context):
     user_id = update.message.from_user.id
@@ -361,7 +331,6 @@ async def edit_cron_time(update, context):
         await update.message.reply_text("لا يمكن تحديث التوقيت في الوقت الراهن")
 
     return ConversationHandler.END
-
 
 async def cron_command(user_id, time):
     api_url = "https://api.cron-job.org/jobs"
@@ -406,29 +375,138 @@ async def cron_command(user_id, time):
         # print(f"Failed to create cron job: {response.status_code}")
         return response.status_code, "Cron job denied"
 
+async def edit_cron_command(user_id, time, job_id):
+    api_url = f"https://api.cron-job.org/jobs/{job_id}"
+    api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
+    command_url = f"https://ElkhamlichiOussama.pythonanywhere.com/task/{user_id}"
+    
+    time_obj = datetime.strptime(time, "%H:%M")
+    
+    schedule = {
+        "job": {
+            "url": command_url,
+            "enabled": True,
+            "saveResponses": True,
+            "schedule": {
+                "timezone": "GMT",
+                "expiresAt": 0,
+                "hours": [time_obj.hour],
+                "minutes": [time_obj.minute],
+                "mdays": [-1],
+                "months": [-1],
+                "wdays": [-1]
+            }
+        }
+    }
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.patch(api_url, headers=headers, data=json.dumps(schedule))
+    
+    return (200, "Cron job updated") if response.status_code == 200 else (response.status_code, "Update failed")
+
+async def old_goals(update, context):
+
+    user_id = update.callback_query.from_user.id
+    goals_list = show_demo_db(user_id)
+    main_goals = list(goals_list.keys())  # Collect all main goals as options
+
+    await update.callback_query.message.reply_text(
+        '<blockquote>هكذا ستبدو أهدافك 🍃</blockquote>\n',
+        parse_mode='HTML'
+    )
+    unformatted_list = edit_prep(user_id)
+    
+    await context.bot.send_poll(
+        chat_id=update.effective_chat.id,
+        question="سجّل مهامك اليومية أثابك الله",
+        options=main_goals,
+        is_anonymous=False,
+        allows_multiple_answers=True,
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("تعديل/حذف نص الأهداف", callback_data="edit_op")],
+        [InlineKeyboardButton("تحديد وقت إرسال المهمات",
+                              callback_data="set_cron_opt_call")]
+    ]
+    formatted_text = ""
+    main_goal_indent = "" 
+    sub_goal_indent = "    • "
+
+    for item in unformatted_list:
+        if item["type"] == "main":
+            formatted_text += main_goal_indent + item['text'] + "\n"
+        elif item["type"] == "sub":
+            formatted_text += sub_goal_indent + item['text'] + "\n"
+    status_code, cron_time = get_cron_time(user_id)
+    if status_code == 200:
+        time = cron_time
+    else:
+        time = "لم يتحدد بعد"
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.callback_query.message.reply_text(
+        '<blockquote>تفاصيل الأهداف🍃</blockquote>\n'
+        f"\n{formatted_text}\n\n"
+        f"<b>الإرسال اليومي على الساعة:</b> {time} ",
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
+
+async def handle_confirm_cron(update, context):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "edit_cron_launch":
+        # Transition to edit state
+        await query.message.reply_text(
+            "المرجو كتابة التوقيت بدقّة (مثال: 06:00)"
+        )
+        return EDIT_CRON_TIME
+    elif query.data == "ok_response":
+        user_id = query.from_user.id
+        cron_type = context.user_data.get('cron_settings')
+        time = context.user_data.get('cron_time')
+        res = cron_seed(user_id, cron_type, time)
+        if res:
+            status_code, message = await cron_command(user_id, time)
+            if status_code == 200:
+                await query.message.reply_text(
+                    "<blockquote>وفقكم الله وأعانكم 🍃</blockquote>\n",
+                    parse_mode='HTML'
+                )
+            else:
+                await query.message.reply_text(f"حدث خطأ: {status_code}")
+        else:
+            await query.message.reply_text(
+                "<blockquote>لا يمكن تحديد التوقيت</blockquote>\n"
+                f"<b>خطأ داخلي</b>",
+                parse_mode='HTML'
+            )
+        return ConversationHandler.END
+    
+
 async def learning_tracks(update, context):
     await update.callback_query.message.reply_text('مسارات')
-
 
 async def contact_us(update, context):
     await update.callback_query.message.reply_text('اتصل بنا')
 
-
 async def handle_default(update, context):
     await update.callback_query.message.reply_text(update.callback_query.data)
 
-
 async def cancel(update, context):
     await update.callback_query.message.reply_text('Canceled')
-
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logging.error(msg="Exception while handling an update:",
                   exc_info=context.error)
 
-    if update.effective_chat:
-        await update.effective_chat.send_message(text="حدث خطأ ما X__X")
-
+    # if update.effective_chat:
+    #     await update.effective_chat.send_message(text="حدث خطأ ما X__X")
 
 def main():
     convo_handler = ConversationHandler(
@@ -438,7 +516,8 @@ def main():
             CallbackQueryHandler(edit_op, pattern='edit_op'),
             CallbackQueryHandler(edit_goal_selection, pattern=".*\*\*\*.*"),
             CallbackQueryHandler(set_cron_opt, pattern='set_cron_opt_call'),
-            CallbackQueryHandler(edit_cron, pattern='edit_cron_launch'),
+            # CallbackQueryHandler(edit_cron, pattern='edit_cron_launch'),
+            CallbackQueryHandler(old_goals, pattern='indeed'),
             CallbackQueryHandler(identification, pattern='identification'),
             CallbackQueryHandler(how_to_set_goals, pattern='how_to_set_goals'),
             CallbackQueryHandler(learning_tracks, pattern='learning_tracks'),
@@ -450,6 +529,7 @@ def main():
             SUB_GOALS: [MessageHandler(filters.TEXT & ~filters.COMMAND, sub_goal_req)],
             EDIT_GOAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_goal)],
             SET_CRON: [CallbackQueryHandler(set_cron, pattern='cronOption:*')],
+            CONFIRM_CRON_TIME: [CallbackQueryHandler(handle_confirm_cron, pattern="edit_cron_launch|ok_response")],
             SET_CRON_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_cron_time)],
             EDIT_CRON_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_cron_time)],
             SET_CRON_WEEKDAY: [CallbackQueryHandler(set_cron, pattern='weekday')],
