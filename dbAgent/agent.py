@@ -223,14 +223,14 @@ def cron_seed(user_id, type, params, jobId):
 def get_cron_time(user_id):
     cursor, conn = dbConnect.connect()
     try:
-        request = "SELECT cron_pattern FROM scheduled WHERE user_id=%s"
+        request = "SELECT cron_pattern, job_id FROM scheduled WHERE user_id=%s"
         request_values = (user_id,)
         cursor.execute(request,request_values)
-        time = cursor.fetchone()
-        if time:
-            return 200, time[0]
+        res = cursor.fetchone()
+        if res:
+            return 200, res[0], res[1]
         else:
-            return 404, None
+            return 404, None, None
     except Exception as e:
         print(f"Erro: {e} ")
         conn.rollback()
