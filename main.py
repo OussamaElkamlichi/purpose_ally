@@ -1,8 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os
 import json
 import requests
+import pytz
+from timezonefinder import TimezoneFinder
 from dotenv import load_dotenv
 from telegram import (BotCommand, ReplyKeyboardMarkup, ReplyKeyboardRemove,
                       Update, InlineKeyboardButton, InlineKeyboardMarkup)
@@ -10,12 +12,14 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes, ConversationHandler, MessageHandler, filters)
 from classes.userGoals import UserGoals
 from telegram.error import BadRequest
+from validators.timeValidator import is_valid_24_hour_time
 from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time
+
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 app = Application.builder().token(TOKEN).build()
 dir_path = os.getcwd()
-IDENTIFICATION, HOW_TO_SET_GOALS, SET_GOALS, SEEK_KNOWLEDGE, CONTACT_US, MAIN_GOAL, SUB_GOALS, EDIT_GOAL, SET_CRON, SET_CRON_TIME, SET_CRON_WEEKDAY , EDIT_CRON_TIME, VALIDATE_CRON, CONFIRM_CRON_TIME= range(
-    14)
+IDENTIFICATION, HOW_TO_SET_GOALS, SET_GOALS, SEEK_KNOWLEDGE, CONTACT_US, MAIN_GOAL, SUB_GOALS, EDIT_GOAL, USER_TIMEZONE, SET_CRON, SET_CRON_TIME, SET_CRON_WEEKDAY , EDIT_CRON_TIME, VALIDATE_CRON, CONFIRM_CRON_TIME= range(
+    15)
 
 commands = [
     BotCommand("start", '🤖 تعريف شريك الهمة'),
@@ -25,10 +29,18 @@ commands = [
     BotCommand("contact", '📥 الاتصال بنا')
 ]
 
+
+# def estimate_timezone(update, context):
+#     utc_time = update.message.date
+#     local_time = datetime.now(timezone.utc)
+#     difference = (local_time - utc_time).total_seconds() / 3600
+#     print(f"Estimated timezone offset: UTC{difference:+.0f}")
+
 async def set_command_menu():
     await app.bot.set_my_commands(commands)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # estimate_timezone(update, context)
     user_id = update.message.from_user.id
     username = update.message.from_user.username
     user_type = update.message.chat.type
@@ -256,19 +268,55 @@ async def edit_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def set_cron_opt(update, context):
-    keyboard = [
-        [InlineKeyboardButton("يوميًا", callback_data="cronOption:daily")],
-        # [InlineKeyboardButton(
-        #     "أسبوعيًا", callback_data="cronOption:weekly")],
-        # [InlineKeyboardButton("تخصيص", callback_data="cronOption:custom")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.callback_query.message.reply_text(
-        '<blockquote>تحديد وقت الإرسال  ⏲️</blockquote>\n',
-        reply_markup=reply_markup,
+        '<blockquote>المرجو إرسال موقعكم لمعرفة التوقيت المحلي</blockquote>\n',
         parse_mode='HTML'
     )
-    return SET_CRON
+    return USER_TIMEZONE
+
+async def get_user_timezone(update, context):
+    print('TRIGGERED!')
+    if update.message.location:
+        latitude = update.message.location.latitude
+        longitude = update.message.location.longitude
+
+        # Determine timezone
+        tf = TimezoneFinder()
+        timezone_str = tf.timezone_at(lat=latitude, lng=longitude)
+        await update.message.reply_text(f"Your timezone appears to be: {timezone_str}")
+        if timezone_str:
+            # Get the current time in that timezone
+            local_timezone = pytz.timezone(timezone_str)
+            local_time = datetime.now(local_timezone)
+
+            # Get the UTC offset (e.g., GMT+1, UTC-5, etc.)
+            utc_offset = local_time.strftime('%z')  # Returns something like '+0100', '-0500'
+
+            # Format the UTC offset as 'GMT+1', 'UTC-5', etc.
+            if utc_offset[0] == "+":
+                utc_offset_str = f"GMT+{utc_offset[1:3]}:{utc_offset[3:]}"
+            else:
+                utc_offset_str = f"GMT{utc_offset[:3]}:{utc_offset[3:]}"
+            # Send the timezone abbreviation (e.g., GMT+1, GMT-5)
+            await update.message.reply_text(f"The timezone abbreviation is: {utc_offset_str}")
+            keyboard = [
+                [InlineKeyboardButton("يوميًا", callback_data="cronOption:daily")],
+                # [InlineKeyboardButton(
+                #     "أسبوعيًا", callback_data="cronOption:weekly")],
+                # [InlineKeyboardButton("تخصيص", callback_data="cronOption:custom")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text(
+                '<blockquote>تحديد وقت الإرسال  ⏲️</blockquote>\n',
+                reply_markup=reply_markup,
+                parse_mode='HTML'
+            )
+            return SET_CRON
+        else:
+            await update.message.reply_text("Could not determine the timezone from the location.")
+        # return SET_CRON
+    else:
+        update.message.reply_text("Please share your location to determine your timezone.")
 
 async def set_cron(update, context):
     await update.callback_query.answer()
@@ -309,14 +357,23 @@ async def set_cron_time(update, context):
     keyboard = [[  InlineKeyboardButton("تعديل", callback_data="edit_cron_launch")],
     [  InlineKeyboardButton("موافق", callback_data="ok_response")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    context.user_data['cron_time'] = update.message.text
-    await update.message.reply_text(
-            "<blockquote>تم تحديد وقت الإرسال ⏰</blockquote>\n"
-            f"<b>يومياً على الساعة:  {context.user_data.get('cron_time')}</b> ",
-            reply_markup=reply_markup,
-            parse_mode='HTML'
-    )
-    return CONFIRM_CRON_TIME
+    result = is_valid_24_hour_time(update.message.text)
+    if result is True:
+        context.user_data['cron_time'] = update.message.text
+        await update.message.reply_text(
+                "<blockquote>تم تحديد وقت الإرسال ⏰</blockquote>\n"
+                f"<b>يومياً على الساعة:  {context.user_data.get('cron_time')}</b> ",
+                reply_markup=reply_markup,
+                parse_mode='HTML'
+        )
+        return CONFIRM_CRON_TIME
+    else:
+        await update.message.reply_text(
+                "<blockquote>خطأ في كتابة الوقت ❌</blockquote>\n"
+                f"<b>مثال: 22:05</b> ",
+                parse_mode='HTML'
+        )
+        return SET_CRON_TIME
 
 async def edit_cron_time(update, context):
     user_id = update.message.from_user.id
@@ -583,6 +640,7 @@ def main():
             MAIN_GOAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, main_goal_req)],
             SUB_GOALS: [MessageHandler(filters.TEXT & ~filters.COMMAND, sub_goal_req)],
             EDIT_GOAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_goal)],
+            USER_TIMEZONE: [MessageHandler(filters.LOCATION & ~filters.COMMAND, get_user_timezone)],
             SET_CRON: [CallbackQueryHandler(set_cron, pattern='cronOption:*')],
             CONFIRM_CRON_TIME: [CallbackQueryHandler(handle_confirm_cron, pattern="edit_cron_launch|ok_response")],
             SET_CRON_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_cron_time)],
