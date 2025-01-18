@@ -6,14 +6,14 @@ import requests
 import pytz
 from timezonefinder import TimezoneFinder
 from dotenv import load_dotenv
-from telegram import (BotCommand, ReplyKeyboardMarkup, ReplyKeyboardRemove,
+from telegram import (BotCommand, Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove,
                       Update, InlineKeyboardButton, InlineKeyboardMarkup)
 from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes, ConversationHandler, MessageHandler, filters)
 from classes.userGoals import UserGoals
-from telegram.error import BadRequest
+from telegram.error import BadRequest, TelegramError
 from validators.timeValidator import is_valid_24_hour_time
-from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time
+from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time, location_seed, get_user
 
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 app = Application.builder().token(TOKEN).build()
@@ -29,6 +29,44 @@ commands = [
     BotCommand("contact", '📥 الاتصال بنا')
 ]
 
+bot = Bot(token=TOKEN)
+description = """🎯 مساعدك الشخصي لتحقيق أهدافك!
+
+هل تبحث عن طريقة سهلة لتتبع أهدافك وتحقيق طموحاتك؟
+
+🔹 مع هذا البوت يمكنك:
+• وضع أهداف جديدة بكل سهولة
+• تتبع تقدمك خطوة بخطوة
+• استلام تذكيرات منتظمة في الأوقات التي تحددها
+• مراجعة إنجازاتك بشكل دوري
+
+✨ مميزات خاصة:
+• واجهة سهلة الاستخدام
+• تذكيرات ذكية
+• تقارير دورية عن تقدمك
+• دعم فني متواصل
+
+📱 للتواصل مع المطور:
+@OussamaElkhamlichi
+
+🚀 ابدأ رحلة تحقيق أهدافك الآن!"""
+
+async def set_bot_description():
+    try:
+        # Try setting short description
+        await bot.set_my_short_description(
+            short_description="🎯 مساعدك الشخصي لتحقيق أهدافك!",
+            language_code="ar"
+        )
+        
+        # Try setting full description
+        await bot.set_my_description(
+            description=description,
+            language_code="ar"
+        )
+        return "Successfully set bot description"
+    except TelegramError as e:
+        return f"Error setting description: {str(e)}"
 
 # def estimate_timezone(update, context):
 #     utc_time = update.message.date
@@ -40,6 +78,8 @@ async def set_command_menu():
     await app.bot.set_my_commands(commands)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # result = await set_bot_description()
+    # await update.message.reply_text(f"Description setup result: {result}")
     # estimate_timezone(update, context)
     user_id = update.message.from_user.id
     username = update.message.from_user.username
@@ -64,9 +104,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   callback_data='how_to_set_goals')],
             [InlineKeyboardButton('📋 تسجيل أهدافي الخاصة',
                                   callback_data='set_goals')],
-            [InlineKeyboardButton('📚 الاطلاع على مسارات طلب العلم',
-                                  callback_data='learning_tracks')],
-            [InlineKeyboardButton('📥 الاتصال بنا', callback_data='contact_us')]
+            # [InlineKeyboardButton('📚 الاطلاع على مسارات طلب العلم',
+            #                       callback_data='learning_tracks')],
+            # [InlineKeyboardButton('📥 الاتصال بنا', callback_data='contact_us')]
         ]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -204,7 +244,7 @@ async def show_demo(update, context):
     keyboard = [
         [InlineKeyboardButton("تعديل/حذف نص الأهداف", callback_data="edit_op")],
         [InlineKeyboardButton("تحديد وقت إرسال المهمات",
-                              callback_data="set_cron_opt_call")]
+                              callback_data="get_location_call")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.callback_query.message.reply_text(
@@ -267,7 +307,8 @@ async def edit_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return ConversationHandler.END
 
-async def set_cron_opt(update, context):
+async def get_location(update, context):
+    await update.callback_query.answer()
     await update.callback_query.message.reply_text(
         '<blockquote>المرجو إرسال موقعكم لمعرفة التوقيت المحلي</blockquote>\n',
         parse_mode='HTML'
@@ -275,48 +316,44 @@ async def set_cron_opt(update, context):
     return USER_TIMEZONE
 
 async def get_user_timezone(update, context):
-    print('TRIGGERED!')
     if update.message.location:
+        user_id = update.message.from_user.id
         latitude = update.message.location.latitude
         longitude = update.message.location.longitude
-
-        # Determine timezone
         tf = TimezoneFinder()
         timezone_str = tf.timezone_at(lat=latitude, lng=longitude)
-        await update.message.reply_text(f"Your timezone appears to be: {timezone_str}")
+        # await update.message.reply_text(f"Your timezone appears to be: {timezone_str}")
         if timezone_str:
-            # Get the current time in that timezone
             local_timezone = pytz.timezone(timezone_str)
             local_time = datetime.now(local_timezone)
-
-            # Get the UTC offset (e.g., GMT+1, UTC-5, etc.)
             utc_offset = local_time.strftime('%z')  # Returns something like '+0100', '-0500'
-
-            # Format the UTC offset as 'GMT+1', 'UTC-5', etc.
             if utc_offset[0] == "+":
                 utc_offset_str = f"GMT+{utc_offset[1:3]}:{utc_offset[3:]}"
             else:
                 utc_offset_str = f"GMT{utc_offset[:3]}:{utc_offset[3:]}"
-            # Send the timezone abbreviation (e.g., GMT+1, GMT-5)
-            await update.message.reply_text(f"The timezone abbreviation is: {utc_offset_str}")
-            keyboard = [
+            stt_code = location_seed(user_id, timezone_str,utc_offset_str)
+            if stt_code in (200, 204):
+                await update.message.reply_text(f"التوقيت المحلي هو: {utc_offset_str}")
+                keyboard = [
                 [InlineKeyboardButton("يوميًا", callback_data="cronOption:daily")],
                 # [InlineKeyboardButton(
                 #     "أسبوعيًا", callback_data="cronOption:weekly")],
                 # [InlineKeyboardButton("تخصيص", callback_data="cronOption:custom")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text(
-                '<blockquote>تحديد وقت الإرسال  ⏲️</blockquote>\n',
-                reply_markup=reply_markup,
-                parse_mode='HTML'
-            )
-            return SET_CRON
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await update.message.reply_text(
+                    '<blockquote>تحديد وقت الإرسال  ⏲️</blockquote>\n',
+                    reply_markup=reply_markup,
+                    parse_mode='HTML'
+                )
+                return SET_CRON
+            else:
+                await update.message.reply_text(f"خطأ X__X {stt_code}")
+
         else:
-            await update.message.reply_text("Could not determine the timezone from the location.")
-        # return SET_CRON
+            await update.message.reply_text("خطأ داخلي X__X")
     else:
-        update.message.reply_text("Please share your location to determine your timezone.")
+        update.message.reply_text("المرجو إرسال موقعك. كل بياناتك محفوظة✅")
 
 async def set_cron(update, context):
     await update.callback_query.answer()
@@ -380,9 +417,10 @@ async def edit_cron_time(update, context):
     new_cron_time = update.message.text
     cron_type = context.user_data.get('cron_settings')
     status_code, cron_time, job_Id = get_cron_time(user_id)
-    print(status_code, cron_time, job_Id)
     stt, message, jobId = await cron_command(user_id,new_cron_time,job_Id)
-    print(stt, message, jobId)
+    print(stt)
+    print(message)
+    print(jobId)
     if stt == 200:
         res = cron_seed(user_id, cron_type, new_cron_time, jobId)
         if res == True:
@@ -395,8 +433,11 @@ async def edit_cron_time(update, context):
     return ConversationHandler.END
 
 async def cron_command(user_id, time, job_id):
-
-    if job_id is None:
+    stt_code, result= get_user(user_id)
+    user_timezone = result[0][5]
+    if stt_code == 200:
+       
+       if job_id is None:
         api_url = "https://api.cron-job.org/jobs"
 
         api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
@@ -414,7 +455,7 @@ async def cron_command(user_id, time, job_id):
             "enabled": True,
             "saveResponses": True,
             "schedule": {
-                "timezone": "GMT",
+                "timezone": user_timezone,
                 "expiresAt": 0,
                 "hours": [hour],      # Specific hour
                 "minutes": [minute],  # Specific minute
@@ -433,13 +474,16 @@ async def cron_command(user_id, time, job_id):
         response = requests.put(api_url, headers=headers, data=json.dumps(schedule))
         response_data = response.json()
         if response.status_code == 200:
+            print("THE RESPONSE DATA IS HERE BABY!",response_data)
             job_id = response_data['jobId']
-            return 200, "Cron job success", job_id
+            if job_id:
+                return 200, "Cron job success", job_id
+            else:
+                return 500, "No job_id is provided", None
         else:
             # print(f"Failed to create cron job: {response.status_code}")
-            return response.status_code, "Cron job denied"
-    else:
-        print("JOB ID IS NOT NUUUUUUUUUUUUUUUUUUUUUll")
+            return response.status_code, "Cron job denied 1"
+       else:
         api_url = f"https://api.cron-job.org/jobs/{job_id}"  # Replace with your actual job ID
         api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
 
@@ -456,7 +500,7 @@ async def cron_command(user_id, time, job_id):
                 "enabled": True,
                 "saveResponses": True,
                 "schedule": {
-                    "timezone": "GMT",
+                    "timezone": user_timezone,
                     "expiresAt": 0,  # Adjust if needed
                     "hours": [hour],  # Specific hour
                     "minutes": [minute],  # Specific minute
@@ -473,52 +517,19 @@ async def cron_command(user_id, time, job_id):
         }
 
         response = requests.patch(api_url, headers=headers, data=json.dumps(schedule))  # Changed to PATCH
-        print(f"Response Status Code: {response.status_code}")
-        print(f"Response Text: {response.text}")
+        # print(f"Response Status Code: {response.status_code}")
+        # print(f"Response Text: {response.text}")
 
-        response_data = response.json()
 
         if response.status_code == 200:
-            job_id = response_data.get('jobId')  # Get jobId from response
-            print(job_id)
+            response_data = response.json() 
+            print(response_data)
             return 200, "Cron job success", job_id
+            # return 200, "Cron job success", job_id
         else:
             # Print the error if failed
-            print(f"Failed to create cron job: {response.status_code} - {response.text}")
-            return response.status_code, "Cron job denied"
-
-async def edit_cron_command(user_id, time, job_id):
-    api_url = f"https://api.cron-job.org/jobs/{job_id}"
-    api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
-    command_url = f"https://ElkhamlichiOussama.pythonanywhere.com/task/{user_id}"
-    
-    time_obj = datetime.strptime(time, "%H:%M")
-    
-    schedule = {
-        "job": {
-            "url": command_url,
-            "enabled": True,
-            "saveResponses": True,
-            "schedule": {
-                "timezone": "GMT",
-                "expiresAt": 0,
-                "hours": [time_obj.hour],
-                "minutes": [time_obj.minute],
-                "mdays": [-1],
-                "months": [-1],
-                "wdays": [-1]
-            }
-        }
-    }
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-
-    response = requests.patch(api_url, headers=headers, data=json.dumps(schedule))
-    
-    return (200, "Cron job updated") if response.status_code == 200 else (response.status_code, "Update failed")
+            # print(f"Failed to create cron job: {response.status_code} - {response.text}")
+            return response.status_code, "Cron job denied 2", None
 
 async def old_goals(update, context):
     await update.callback_query.answer()
@@ -543,7 +554,7 @@ async def old_goals(update, context):
     keyboard = [
         [InlineKeyboardButton("تعديل/حذف نص الأهداف", callback_data="edit_op")],
         [InlineKeyboardButton("تحديد وقت إرسال المهمات",
-                              callback_data="set_cron_opt_call")]
+                              callback_data="get_location_call")]
     ]
     formatted_text = ""
     main_goal_indent = "" 
@@ -583,8 +594,9 @@ async def handle_confirm_cron(update, context):
         cron_type = context.user_data.get('cron_settings')
         time = context.user_data.get('cron_time')
         status_code, cron_time, job_Id = get_cron_time(user_id)
-        status_code, message, jobId = await cron_command(user_id, time, job_Id)
-        if status_code == 200:
+        stt_code, message, jobId = await cron_command(user_id, time, job_Id)
+        print(stt_code, message, jobId)
+        if stt_code == 200:
             res = cron_seed(user_id, cron_type, time, jobId)   
             if res:
                 await query.message.reply_text(
@@ -627,7 +639,7 @@ def main():
             CallbackQueryHandler(set_goals, pattern='set_goals'),
             CallbackQueryHandler(edit_op, pattern='edit_op'),
             CallbackQueryHandler(edit_goal_selection, pattern=".*\*\*\*.*"),
-            CallbackQueryHandler(set_cron_opt, pattern='set_cron_opt_call'),
+            CallbackQueryHandler(get_location, pattern='get_location_call'),
             # CallbackQueryHandler(edit_cron, pattern='edit_cron_launch'),
             CallbackQueryHandler(old_goals, pattern='indeed'),
             CallbackQueryHandler(identification, pattern='identification'),

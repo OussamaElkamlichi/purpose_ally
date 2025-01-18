@@ -173,7 +173,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.effective_chat.send_message(text="حدث خطأ ما X__X")
 
 async def handle_input(update, context):
-    print("hello")
     user_input = update.message.text
     if user_input == "🤖 تعريف شريك الهمة":
         await identification(update, context)

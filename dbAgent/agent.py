@@ -46,8 +46,8 @@ def essential_seed(username, user_id, user_type, course_id):
                 return 200, result  
 
         else:
-            sql4 = "INSERT INTO users (username, username_id, user_type) VALUES (%s,%s,%s)"
-            vals = (username, user_id, user_type)
+            sql4 = "INSERT INTO users (username, username_id, user_type, location, timezone) VALUES (%s,%s,%s,%s,%s)"
+            vals = (username, user_id, user_type, None, None)
             cursor.execute(sql4, vals)
             cursor.fetchall()
             conn.commit()
@@ -81,7 +81,7 @@ def goals_seeding(goals_list, user_id):
         conn.commit()
         return "تم الإدخال"
     except mysql.connector.Error as err:
-        print("Error:", err)
+        # print("Error:", err)
         return f"Error: {err}"
     finally:
         dbConnect.close()
@@ -117,7 +117,7 @@ def show_demo_db(user_id):
 
         return my_list
     except mysql.connector.Error as err:
-        print("Error:", err)
+        # print("Error:", err)
         return f"Error: {err}"
     finally:
         dbConnect.close()
@@ -149,7 +149,7 @@ def edit_prep(user_id):
 
         return main_list
     except mysql.connector.Error as err:
-        print("Error:", err)
+        # print("Error:", err)
         return f"Error: {err}"
     finally:
         dbConnect.close()
@@ -211,7 +211,6 @@ def cron_seed(user_id, type, params, jobId):
             cron_vals = (user_id, type, params, jobId)
             cursor.execute(cron_sql, cron_vals)
             conn.commit()
-            print("ok3")
             return cursor.rowcount > 0
     except Exception as e:
         print(f"Error: {e}")
@@ -237,3 +236,55 @@ def get_cron_time(user_id):
         return 500, False
     finally:
         dbConnect.close()
+
+def location_seed(user_id,location, timezone):
+    cursor, conn = dbConnect.connect()
+    try:
+        check_query = "SELECT location, timezone FROM users WHERE username_id=%s"
+        cursor.execute(check_query, (user_id,))
+        existing_record = cursor.fetchone()
+
+        if not existing_record:
+            # print(f"No record found for username_id={user_id}")
+            return 404
+
+        current_location, current_timezone = existing_record
+        if current_location == location and current_timezone == timezone:
+            # print("No changes detected in location or timezone.")
+            return 204
+
+        # Perform the update
+        update_query = "UPDATE users SET location=%s, timezone=%s WHERE username_id=%s"
+        cursor.execute(update_query, (location, timezone, user_id))
+        conn.commit()
+
+        if cursor.rowcount > 0:
+            return 200  
+        else:
+            return 204 
+    except Exception as e:
+        print(f"Error: {e}")
+        conn.rollback()
+        return 500
+    finally:
+        dbConnect.close()
+
+
+def get_user(user_id):
+    cursor, conn = dbConnect.connect()
+    try:
+        request = "SELECT * FROM users WHERE username_id = %s"
+        request_values = (user_id,)
+        cursor.execute(request, request_values)
+        result = cursor.fetchall()
+        if result:
+            return 200, result  # Return success with the result
+        else:
+            return 404, None  # No user found, return 404 (Not Found)
+    
+    except Exception as e:
+        print(f"Err!: {e}")  # Consider using logging instead of print
+        return 500, False  # Return 500 for server errors
+    
+    finally:
+        dbConnect.close()  # Close the connection in finally block to ensure it's always executed
