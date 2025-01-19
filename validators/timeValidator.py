@@ -1,6 +1,4 @@
 import re
-from timezonefinder import TimezoneFinder
-from geopy.geocoders import Nominatim
 def is_valid_24_hour_time(timeIp):
     time_text = timeIp.strip()
     # Regular expression to match 24-hour time format (HH:MM)

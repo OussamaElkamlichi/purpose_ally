@@ -1,5 +1,3 @@
-import os
-from dotenv import load_dotenv
 import mysql.connector
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from classes.dbConnection import dbConnect

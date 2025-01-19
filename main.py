@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 import logging
 import os
 import json
@@ -6,12 +6,12 @@ import requests
 import pytz
 from timezonefinder import TimezoneFinder
 from dotenv import load_dotenv
-from telegram import (BotCommand, Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove,
+from telegram import (BotCommand, Bot,
                       Update, InlineKeyboardButton, InlineKeyboardMarkup)
 from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes, ConversationHandler, MessageHandler, filters)
 from classes.userGoals import UserGoals
-from telegram.error import BadRequest, TelegramError
+from telegram.error import TelegramError
 from validators.timeValidator import is_valid_24_hour_time
 from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time, location_seed, get_user
 
