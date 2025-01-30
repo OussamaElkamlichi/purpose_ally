@@ -9,11 +9,12 @@ from dotenv import load_dotenv
 from telegram import (BotCommand, Bot,
                       Update, InlineKeyboardButton, InlineKeyboardMarkup)
 from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
-                          ContextTypes, ConversationHandler, MessageHandler, filters)
+                          ContextTypes, ConversationHandler, MessageHandler, filters, PollAnswerHandler)
 from classes.userGoals import UserGoals
 from telegram.error import TelegramError
 from validators.timeValidator import is_valid_24_hour_time
-from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time, location_seed, get_user
+from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time, location_seed, get_user, retrieve_goals, update_daily_session, fetch_polls
+from scheduled.tasks import task
 
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 app = Application.builder().token(TOKEN).build()
@@ -613,6 +614,27 @@ async def handle_confirm_cron(update, context):
             )
         return ConversationHandler.END
 
+async def daily_goals_checking(update, context):
+    poll_answer = update.poll_answer
+    poll_id = poll_answer.poll_id
+    option_ids = poll_answer.option_ids
+    res = fetch_polls(poll_id, option_ids)
+    # print(update)
+    # answer = update.poll_answer
+    # option_ids = answer.option_ids
+    # user_id = update.effective_user.id
+    # poll_options = retrieve_goals(user_id)
+    # print(poll_options)
+    # for index, (key, value) in enumerate(poll_options.items()):
+    #     if index in option_ids:
+          
+    #     #   response = update_daily_session(user_id,)
+    #       print(f"Goal selected: {key} - Details: {value}")        
+
+async def test_func(update, context):
+    res = await task(5264787237)
+    print("Task is launched!")
+
 async def learning_tracks(update, context):
     await update.callback_query.message.reply_text('مسارات')
 
@@ -636,6 +658,7 @@ def main():
     convo_handler = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
+            CommandHandler("test", test_func),
             CallbackQueryHandler(set_goals, pattern='set_goals'),
             CallbackQueryHandler(edit_op, pattern='edit_op'),
             CallbackQueryHandler(edit_goal_selection, pattern=".*\*\*\*.*"),
@@ -664,6 +687,7 @@ def main():
     app.add_handler(convo_handler)
     app.add_error_handler(error_handler)
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(PollAnswerHandler(daily_goals_checking))
     app.run_polling()
 
 if __name__ == "__main__":

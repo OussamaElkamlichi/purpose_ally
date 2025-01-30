@@ -267,7 +267,6 @@ def location_seed(user_id,location, timezone):
     finally:
         dbConnect.close()
 
-
 def get_user(user_id):
     cursor, conn = dbConnect.connect()
     try:
@@ -286,3 +285,94 @@ def get_user(user_id):
     
     finally:
         dbConnect.close()  # Close the connection in finally block to ensure it's always executed
+
+def retrieve_goals(user_id):
+    cursor, conn = dbConnect.connect()
+    try:
+        my_list = {}
+        show_sql = "SELECT goal_id, goal_title FROM goals WHERE user_id = %s"
+        cursor.execute(show_sql, (user_id,))
+        res = cursor.fetchall()
+
+        for main_goal in res:
+            goal_id, goal_title = main_goal
+            subgoals = []
+
+            sql_sub = "SELECT subgoal_title, status FROM subgoals WHERE goal_id = %s"
+            cursor.execute(sql_sub, (goal_id,))
+            result = cursor.fetchall()
+
+            for sub_goal in result:
+                subgoals.append({"subgoal_title": sub_goal[0], "status": sub_goal[1]})
+
+            my_list[goal_title] = subgoals
+
+        return my_list
+    
+    except Exception as e:
+        print(f"Err!: {e}")  # Consider using logging instead of print
+        return 500, False  # Return 500 for server errors
+    finally:
+        dbConnect.close()
+
+def fetch_polls(poll_id, option_ids):
+    cursor, conn = dbConnect.connect()
+    try:
+        select_sql = "SELECT goal_id, user_id FROM poll_mappings WHERE poll_id = %s"
+        select_val = (poll_id,)
+        cursor.execute(select_sql, select_val)
+        res = cursor.fetchone()
+        if res:
+            goal_id, user_id = res 
+            select_subgoals = "SELECT subgoal_id, subgoal_title, status FROM subgoals WHERE goal_id = %s"
+            select_subgoals_val = (goal_id,)
+            cursor.execute(select_subgoals, select_subgoals_val)
+            subgoals = cursor.fetchall()
+            for option_id in option_ids:
+                if option_id < len(subgoals):
+                    subgoal = subgoals[option_id]
+                    subgoal_id = subgoal[0]
+                    if update_daily_session(subgoal):
+                        cleanup_poll_mapping(poll_id)
+                else:
+                    print(f"Invalid option_id {option_id} for subgoals of length {len(subgoals)}")
+        else: 
+            print(f"Poll ID {poll_id} not found in poll_mappings table.")
+    except Exception as e:
+        print(f"Err!: {e}")
+        return 500, False
+    finally:
+        dbConnect.close()
+
+def update_daily_session(subgoal):
+    cursor, conn = dbConnect.connect()
+    try:
+        subgoal_id = subgoal[0]
+        subgoal_ttl = subgoal[1]
+        update_sql = "UPDATE daily_sessions SET status = 'done' WHERE goal_id = %s"
+        cursor.execute(update_sql, (subgoal_id,))
+        conn.commit()
+        print(f"Subgoal '{subgoal_ttl}' marked as done.")
+        return True
+    except Exception as e:
+        print(f"Failed to update subgoal: {e}")
+        return False
+    finally:
+        conn.close()
+
+def cleanup_poll_mapping(poll_id):
+    conn, cursor = dbConnect.connect()
+    if not conn:
+        print("Failed to connect to the database.")
+        return
+
+    try:
+        delete_sql = "DELETE FROM poll_mappings WHERE poll_id = %s"
+        cursor.execute(delete_sql, (poll_id,))
+        conn.commit()
+        print(f"Poll mapping for poll_id={poll_id} deleted.")
+    except Exception as e:
+        print(f"Failed to delete poll mapping: {e}")
+    finally:
+        conn.close()
+ 
