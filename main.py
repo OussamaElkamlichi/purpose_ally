@@ -475,7 +475,6 @@ async def cron_command(user_id, time, job_id):
         response = requests.put(api_url, headers=headers, data=json.dumps(schedule))
         response_data = response.json()
         if response.status_code == 200:
-            print("THE RESPONSE DATA IS HERE BABY!",response_data)
             job_id = response_data['jobId']
             if job_id:
                 return 200, "Cron job success", job_id

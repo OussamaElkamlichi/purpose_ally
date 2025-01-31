@@ -45,7 +45,8 @@ def essential_seed(username, user_id, user_type, course_id):
 
         else:
             sql4 = "INSERT INTO users (username, username_id, user_type, location, timezone) VALUES (%s,%s,%s,%s,%s)"
-            vals = (username, user_id, user_type, None, None)
+            user_type_str = str(user_type)
+            vals = (username, user_id, user_type_str, None, None)
             cursor.execute(sql4, vals)
             cursor.fetchall()
             conn.commit()
@@ -332,8 +333,13 @@ def fetch_polls(poll_id, option_ids):
                 if option_id < len(subgoals):
                     subgoal = subgoals[option_id]
                     subgoal_id = subgoal[0]
-                    if update_daily_session(subgoal):
-                        cleanup_poll_mapping(poll_id)
+                    res = update_daily_session(subgoal)
+                    if res:
+                        delete_sql = "DELETE FROM poll_mappings WHERE poll_id = %s"
+                        delete_val = (poll_id,)
+                        cursor.execute(delete_sql, delete_val)
+                        conn.commit()
+                        print(f"Poll mapping for poll_id={poll_id} deleted.")
                 else:
                     print(f"Invalid option_id {option_id} for subgoals of length {len(subgoals)}")
         else: 
@@ -357,8 +363,6 @@ def update_daily_session(subgoal):
     except Exception as e:
         print(f"Failed to update subgoal: {e}")
         return False
-    finally:
-        conn.close()
 
 def cleanup_poll_mapping(poll_id):
     cursor, conn = dbConnect.connect()
