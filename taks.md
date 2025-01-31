@@ -4,7 +4,8 @@
 - Time check logic.✅
 - Fix time difference between user and cron-job server.✅
 - Fix why timezone and location doesn't get updated in `cron_command` function.✅
-- Fix daily poll goals.
+- Fix daily poll goals.✅
+- Delete from poll_mappings.
 - Add a descrption picture when the location step is on.
 - Handle The `goal-checking` operation.
 - Create Logic when the user accomplishes `Main Goals`.
