@@ -13,7 +13,7 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
 from classes.userGoals import UserGoals
 from telegram.error import TelegramError
 from validators.timeValidator import is_valid_24_hour_time
-from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time, location_seed, get_user, retrieve_goals, update_daily_session, fetch_polls
+from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time, location_seed, get_user, retrieve_goals, update_daily_session, fetch_polls, get_poll_mappings_count
 from scheduled.tasks import task
 
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
@@ -617,9 +617,15 @@ async def daily_goals_checking(update, context):
     poll_answer = update.poll_answer
     poll_id = poll_answer.poll_id
     option_ids = poll_answer.option_ids
-    res = fetch_polls(poll_id, option_ids)
-    # print(update)
-    # answer = update.poll_answer
+    user_id = poll_answer.user.id 
+    # stt_code, total, done = fetch_polls(poll_id, option_ids)
+    stt_code, total, done, remaining_polls = fetch_polls(poll_id, option_ids)  # Now returns remaining polls
+    print("WHATSSSUUUUUUP",remaining_polls)
+    if remaining_polls == 0: 
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=" لقد أكملت أهدافك اليومية  ✨"
+        )
     # option_ids = answer.option_ids
     # user_id = update.effective_user.id
     # poll_options = retrieve_goals(user_id)

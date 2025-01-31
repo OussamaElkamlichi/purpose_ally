@@ -329,12 +329,18 @@ def fetch_polls(poll_id, option_ids):
             select_subgoals_val = (goal_id,)
             cursor.execute(select_subgoals, select_subgoals_val)
             subgoals = cursor.fetchall()
+            # subgoals_total = 0
+            # for subgoal in subgoals:
+            #     subgoals_total +=1
+            # print("subgoals count", subgoals_total)
+            done_subgoals = 0
             for option_id in option_ids:
                 if option_id < len(subgoals):
                     subgoal = subgoals[option_id]
                     subgoal_id = subgoal[0]
                     res = update_daily_session(subgoal)
                     if res:
+                        done_subgoals += 1
                         delete_sql = "DELETE FROM poll_mappings WHERE poll_id = %s"
                         delete_val = (poll_id,)
                         cursor.execute(delete_sql, delete_val)
@@ -342,11 +348,15 @@ def fetch_polls(poll_id, option_ids):
                         print(f"Poll mapping for poll_id={poll_id} deleted.")
                 else:
                     print(f"Invalid option_id {option_id} for subgoals of length {len(subgoals)}")
+            cursor.execute("SELECT COUNT(*) FROM poll_mappings WHERE user_id = %s", (user_id,))
+            remaining_polls = cursor.fetchone()[0]
+            return 200, len(subgoals), done_subgoals, remaining_polls
         else: 
             print(f"Poll ID {poll_id} not found in poll_mappings table.")
+            return 406, None, None, None
     except Exception as e:
         print(f"Err!: {e}")
-        return 500, False
+        return 500, None, None, None
     finally:
         dbConnect.close()
 
@@ -363,17 +373,15 @@ def update_daily_session(subgoal):
     except Exception as e:
         print(f"Failed to update subgoal: {e}")
         return False
-
-def cleanup_poll_mapping(poll_id):
+    
+def get_poll_mappings_count(user_id):
     cursor, conn = dbConnect.connect()
     try:
-        delete_sql = "DELETE FROM poll_mappings WHERE poll_id = %s"
-        delete_val = (poll_id,)
-        cursor.execute(delete_sql, delete_val)
-        conn.commit()
-        print(f"Poll mapping for poll_id={poll_id} deleted.")
+        select_sql = "SELECT COUNT(user_id) FROM poll_mappings WHERE user_id=%s"
+        select_val = (user_id,)
+        cursor.execute(select_sql, select_val)
+        count = cursor.fetchone()[0]
+        return True, count
     except Exception as e:
-        print(f"Failed to delete poll mapping: {e}")
-    finally:
-        conn.close()
- 
+        print(f"Failed {e}")
+        return False, None
