@@ -362,9 +362,6 @@ def update_daily_session(subgoal):
 
 def cleanup_poll_mapping(poll_id):
     cursor, conn = dbConnect.connect()
-    if not conn:
-        print("Failed to connect to the database.")
-        return
     try:
         delete_sql = "DELETE FROM poll_mappings WHERE poll_id = %s"
         cursor.execute(delete_sql, (poll_id,))
