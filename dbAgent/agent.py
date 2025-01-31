@@ -364,7 +364,8 @@ def cleanup_poll_mapping(poll_id):
     cursor, conn = dbConnect.connect()
     try:
         delete_sql = "DELETE FROM poll_mappings WHERE poll_id = %s"
-        cursor.execute(delete_sql, (poll_id,))
+        delete_val = (poll_id,)
+        cursor.execute(delete_sql, delete_val)
         conn.commit()
         print(f"Poll mapping for poll_id={poll_id} deleted.")
     except Exception as e:
