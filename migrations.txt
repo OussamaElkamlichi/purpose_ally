@@ -13,3 +13,29 @@ CREATE TABLE poll_mappings (
     FOREIGN KEY (goal_id) REFERENCES goals(goal_id),
     FOREIGN KEY (user_id) REFERENCES users(username_id)✅
 );
+SELECT CONSTRAINT_NAME
+FROM information_schema.KEY_COLUMN_USAGE
+WHERE TABLE_NAME = 'scheduled' AND COLUMN_NAME = 'user_id';
+ALTER TABLE scheduled DROP FOREIGN KEY scheduled_ibfk_1;
+ALTER TABLE scheduled
+ADD CONSTRAINT scheduled_ibfk_1
+FOREIGN KEY (user_id) REFERENCES users(username_id) 
+ON DELETE CASCADE;
+
+SELECT CONSTRAINT_NAME
+FROM information_schema.KEY_COLUMN_USAGE
+WHERE TABLE_NAME = 'poll_mappings' AND COLUMN_NAME = 'goal_id';
+SELECT CONSTRAINT_NAME
+FROM information_schema.KEY_COLUMN_USAGE
+WHERE TABLE_NAME = 'poll_mappings' AND COLUMN_NAME = 'user_id';
+ALTER TABLE poll_mappings DROP FOREIGN KEY poll_mappings_ibfk_1;
+ALTER TABLE poll_mappings DROP FOREIGN KEY poll_mappings_ibfk_2;
+ALTER TABLE poll_mappings
+ADD CONSTRAINT poll_mappings_ibfk_1
+FOREIGN KEY (user_id) REFERENCES users(username_id) 
+ON DELETE CASCADE;
+ALTER TABLE poll_mappings
+ADD CONSTRAINT poll_mappings_ibfk_2
+FOREIGN KEY (goal_id) REFERENCES goals(goal_id) 
+ON DELETE CASCADE;
+

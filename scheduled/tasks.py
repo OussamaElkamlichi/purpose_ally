@@ -1,7 +1,8 @@
 import asyncio
 import mysql.connector
 import sys
-from telegram import Bot
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from dbAgent.agent import progress_bar, fetch_weekly_data
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 
 def create_connection():
@@ -25,17 +26,27 @@ def create_connection():
         return None, None
 
 async def send_poll(bot, user_id, my_list):
-    conn, cursor = create_connection()
-    if not conn:
-        print("Failed to connect to the database.")
-        return
+    if not my_list:
+        keyboard = [[InlineKeyboardButton("موافق", callback_data="stop_cron")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await bot.send_message(user_id,
+            "<blockquote>🎉بارك الله! لقد أنجزت جميع أهدافك!</blockquote>\n\n"
+            "<b>هل تريد أن توقف التنبيهات اليومية؟</b>\n",
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
+    else:
+        conn, cursor = create_connection()
+        if not conn:
+            print("Failed to connect to the database.")
+            return
     try:
         for goal_title, goal_data in my_list.items():
             goal_id = goal_data["goal_id"]
             sub_goals = goal_data["subgoals"]
             options = [sub_goal["subgoal_title"] for sub_goal in sub_goals]
             if len(options) < 2:
-                options.extend(["None", "Skip"]) 
+                options.extend(["لا يمكن إرسال تصويت", "بخيار واحد فقط، لذا نضيف هذين"]) 
             sent_poll = await bot.send_poll(
                 chat_id=user_id,
                 question=goal_title,
@@ -58,8 +69,8 @@ async def task(user_id):
 
     try:
         my_list = {}
-        show_sql = "SELECT goal_id, goal_title FROM goals WHERE user_id = %s"
-        cursor.execute(show_sql, (user_id,))
+        show_sql = "SELECT goal_id, goal_title FROM goals WHERE user_id = %s AND status!=%s"
+        cursor.execute(show_sql, (user_id,'done'))
         res = cursor.fetchall()
         for goal in res:
             goal_id, goal_title = goal
@@ -70,8 +81,8 @@ async def task(user_id):
 
             # if cursor.rowcount > 0:
             subgoals = []
-            sql_sub = "SELECT subgoal_title, status, subgoal_id FROM subgoals WHERE goal_id = %s"
-            cursor.execute(sql_sub, (goal_id,))
+            sql_sub = "SELECT subgoal_title, status, subgoal_id FROM subgoals WHERE goal_id = %s AND status!=%s"
+            cursor.execute(sql_sub, (goal_id,'done'))
             result = cursor.fetchall()
 
             for sub_goal in result:
@@ -95,6 +106,34 @@ async def task(user_id):
         print(f"An error occurred: {e}")
     finally:
         conn.close()
+
+async def weekly_cron(user_id):
+    bot = Bot(token=TOKEN)
+    try:
+        # Fetch data from the database
+        total_goals, total_assigned_subgoals, completed_subgoals, completed_sessions, total_sessions = fetch_weekly_data(user_id)
+        
+        # Calculate progress percentages (handle division by zero)
+        goal_progress = (completed_subgoals / total_assigned_subgoals * 100) if total_assigned_subgoals > 0 else 0
+        session_progress = (completed_sessions / total_sessions * 100) if total_sessions > 0 else 0
+
+        # Generate the report message
+        report_message = (
+            "📊 *تقرير التقدم الأسبوعي* 📊\n\n"
+            f"🏆 *الأهداف الرئيسية:* {total_goals} هدف\n"
+            f"🎯 *الأهداف الفرعية المكتملة:* {completed_subgoals} هدف فرعي\n"
+            f"🕒 *الجلسات اليومية المكتملة:* {completed_sessions}/{total_sessions}\n\n"
+            "🚀 *تقدم الأهداف:*\n"
+            f"{progress_bar(goal_progress)}\n\n"
+            "📅 *تقدم الجلسات اليومية:*\n"
+            f"{progress_bar(session_progress)}\n\n"
+            "✅ *استمر في العمل الجيد!* 💪"
+        )
+
+        # Send the report message
+        await bot.send_message(chat_id=user_id, text=report_message, parse_mode="Markdown")
+    except Exception as e:
+        print(f"Error in weekly_cron: {e}")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

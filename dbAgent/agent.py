@@ -1,6 +1,8 @@
 import mysql.connector
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from classes.dbConnection import dbConnect
+from telegram import Bot
+TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 
 def essential_seed(username, user_id, user_type, course_id):
     cursor, conn = dbConnect.connect()
@@ -12,27 +14,69 @@ def essential_seed(username, user_id, user_type, course_id):
         val = (user_id,)
         cursor.execute(sql1, val)
         username_user = cursor.fetchone()
-        if cursor.rowcount > 0:
-            username = username_user[0] 
+        print(username_user)
+        if username_user:
+            username = username_user[0]
+            # Fetch user's goals
             sql2 = "SELECT goal_title FROM goals WHERE user_id = %s"
-            val = (user_id,)
-            cursor.execute(sql2, val)
-            cursor.fetchall()
-            if cursor.rowcount > 0:
+            cursor.execute(sql2, (user_id,))
+            goals = cursor.fetchall()
+
+            if goals:
+                # Fetch count of completed goals
+                checked_sql = "SELECT COUNT(*) FROM goals WHERE user_id = %s AND status = %s"
+                cursor.execute(checked_sql, (user_id, 'done'))
+                checked_goals = cursor.fetchone()[0]  # Get the count of completed goals
+
+                total_goals = len(goals)
+                if checked_goals < total_goals:
+                    result = {
+                        "message": f"<blockquote>🍃<b>{username}</b> ،مرحباً</blockquote>\n\n"
+                                  f"لقد سجّلت معنا أهدافًا في السابق. ولديك أهداف مكتملة بمعدل {checked_goals}/{total_goals}\n"
+                                  f"<blockquote><b>البداية الجديدة تحمو جميع المعلومات</b></blockquote>",
+                        "reply_markup": InlineKeyboardMarkup([
+                            [InlineKeyboardButton('أريد أن أتابع 💪', callback_data='indeed')],
+                            [InlineKeyboardButton('أريد بداية جديدة 🆕', callback_data='new_start')]
+                        ])
+                    }
+                    return 200, result
+                elif checked_goals == total_goals:
+                    result = {
+                        "message": f"<blockquote>🍃<b>{username}</b> ،مرحباً</blockquote>\n\n"
+                                  f"لقد سجّلت معنا أهدافًا في السابق. ولديك جميع الأهداف مكتملة بمعدل {checked_goals}/{total_goals}\n"
+                                   f"<blockquote><b>البداية الجديدة تحمو جميع المعلومات</b></blockquote>",
+                        "reply_markup": InlineKeyboardMarkup([
+                            # [InlineKeyboardButton('أريد أن أتابع 💪', callback_data='indeed')],
+                            [InlineKeyboardButton('أريد بداية جديدة 🆕', callback_data='new_start')]
+                        ])
+                    }
+                    return 200, result
+                else:
+                    result = {
+                        "message": f"<blockquote>🍃<b>{username}</b> ،مرحباً</blockquote>\n\n"
+                                  "لقد سجّلت معنا أهدافًا في السابق. هل تُحب أن تتابع؟",
+                        "reply_markup": InlineKeyboardMarkup([
+                            [InlineKeyboardButton('أجل !', callback_data='indeed')],
+                            [InlineKeyboardButton('أريد بداية جديدة', callback_data='new_start')]
+                        ])
+                    }
+                return 200, result
+            else:
                 result = {
                     "message": f"<blockquote>🍃<b>{username}</b> ،مرحباً</blockquote>\n\n"
-                              "لقد سجّلت معنا أهدافًا في السابق. هل تُحب أن تتابع؟",
-                    "reply_markup": InlineKeyboardMarkup([
-                        [InlineKeyboardButton('أجل !', callback_data='indeed')],
-                        [InlineKeyboardButton('أريد بداية جديدة', callback_data='new_start')]
-                    ])
+                                  "لقد سجّلت معنا أهدافًا في السابق. لكن دون أهداف",
+                        "reply_markup": InlineKeyboardMarkup([
+                            # [InlineKeyboardButton('أجل !', callback_data='indeed')],
+                            [InlineKeyboardButton('أريد بداية جديدة', callback_data='new_start')]
+                        ])
                 }
-                return 200, result  
-            sql3 = "SELECT title FROM courses WHERE user_id= %s"
-            val = (user_id,)
-            cursor.execute(sql3, val)
-            cursor.fetchall()
-            if cursor.rowcount > 0:
+                return 200, result
+            # Fetch user's courses
+            sql3 = "SELECT title FROM courses WHERE user_id = %s"
+            cursor.execute(sql3, (user_id,))
+            courses = cursor.fetchall()
+
+            if courses:
                 result = {
                     "message": f"<blockquote> 🍃 <b>{username}</b> ،مرحباً</blockquote>\n\n"
                               "لقد سجّلت معنا في أحد المسارات سابقاً. هل تريد أن تتابع؟",
@@ -41,24 +85,24 @@ def essential_seed(username, user_id, user_type, course_id):
                         [InlineKeyboardButton('أريد بداية جديدة', callback_data='new_start')]
                     ])
                 }
-                return 200, result  
-
+                return 200, result
         else:
-            sql4 = "INSERT INTO users (username, username_id, user_type, location, timezone) VALUES (%s,%s,%s,%s,%s)"
+            # Insert new user
+            sql4 = "INSERT INTO users (username, username_id, user_type, location, timezone) VALUES (%s, %s, %s, %s, %s)"
             user_type_str = str(user_type)
             vals = (username, user_id, user_type_str, None, None)
             cursor.execute(sql4, vals)
-            cursor.fetchall()
             conn.commit()
-            result = {
-                "message":"done"
-            }
+            result = {"message": "done"}
+            return 201, result
 
-        return 201, result 
-    except mysql.connector.Error as err:
-        return {"message": f"Error: {err}", "reply_markup": None}
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return 500, {"message": "An error occurred while processing your request."}
+
     finally:
         dbConnect.close()
+    return 404, {"message": "No data found or action taken."}
 
 def goals_seeding(goals_list, user_id):
     cursor, conn = dbConnect.connect()
@@ -338,6 +382,7 @@ def fetch_polls(poll_id, option_ids):
                 if option_id < len(subgoals):
                     subgoal = subgoals[option_id]
                     subgoal_id = subgoal[0]
+                    print("THE SUBGOAL IS HERE:", subgoal)
                     res = update_daily_session(subgoal)
                     if res:
                         done_subgoals += 1
@@ -349,7 +394,7 @@ def fetch_polls(poll_id, option_ids):
                 else:
                     print(f"Invalid option_id {option_id} for subgoals of length {len(subgoals)}")
             cursor.execute("SELECT COUNT(*) FROM poll_mappings WHERE user_id = %s", (user_id,))
-            remaining_polls = cursor.fetchone()[0]
+            remaining_polls = cursor.fetchone()[0]  # Total polls left
             return 200, len(subgoals), done_subgoals, remaining_polls
         else: 
             print(f"Poll ID {poll_id} not found in poll_mappings table.")
@@ -385,3 +430,141 @@ def get_poll_mappings_count(user_id):
     except Exception as e:
         print(f"Failed {e}")
         return False, None
+    
+async def send_poll(bot, user_id, my_list):
+    cursor, conn = dbConnect.connect()
+    if not conn:
+        print("Failed to connect to the database.")
+        return
+    try:
+        for goal_title, goal_data in my_list.items():
+            goal_id = goal_data["goal_id"]
+            sub_goals = goal_data["subgoals"]
+            options = [sub_goal["subgoal_title"] for sub_goal in sub_goals]
+            if len(options) < 2:
+                options.extend(["لا يمكن إرسال تصويت", "بخيار واحد فقط، لذا نضيف هذين"]) 
+            sent_poll = await bot.send_poll(
+                chat_id=user_id,
+                question=goal_title,
+                options=options,
+                is_anonymous=False,
+                allows_multiple_answers=True,
+            )
+            insert_sql = " INSERT INTO poll_mappings (poll_id, goal_id, user_id) VALUES (%s, %s, %s)"
+            insert_vals = (sent_poll.poll.id, goal_id, user_id)
+            cursor.execute(insert_sql, insert_vals)
+            conn.commit()
+    except Exception as e:
+        print(f"Failed to send poll for {goal_title}: {e}")
+
+async def get_goals(user_id):
+    cursor, conn = dbConnect.connect()
+    if not conn:
+        print("Failed to connect to the database.")
+        return 500
+    try:
+        my_list = {}
+        show_sql = "SELECT goal_id, goal_title, status FROM goals WHERE user_id = %s"
+        cursor.execute(show_sql, (user_id,))
+        res = cursor.fetchall()
+        for goal in res:
+            goal_id, goal_title, status = goal
+            subgoals = []
+            sql_sub = "SELECT subgoal_id, subgoal_title, status, subgoal_id FROM subgoals WHERE goal_id = %s"
+            cursor.execute(sql_sub, (goal_id,))
+            result = cursor.fetchall()
+            for sub_goal in result:
+                subgoals.append({"subgoal_id": sub_goal[0], "subgoal_title": sub_goal[1], "status": sub_goal[2]})
+            my_list[goal_title] = {
+                    "goal_id": goal_id,
+                    "main_status":status,
+                    "subgoals": subgoals,
+                }
+            print(my_list)
+        return 200, my_list
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return 200, e
+    finally:
+        dbConnect.close()
+
+def mark_as_done(goal_type, goal_id, user_id):
+    cursor, conn = dbConnect.connect()
+    try:
+        if goal_type == "maingoal":
+            update_sql = "UPDATE goals SET status = %s WHERE goal_id = %s AND user_id = %s"
+            update_vals = ("done", goal_id, user_id)
+        elif goal_type == "subgoal":
+            update_sql = "UPDATE subgoals SET status = %s WHERE subgoal_id = %s"
+            update_vals = ("done", goal_id)
+        else:
+            print(f"Invalid goal type: {goal_type}")
+            return False
+
+        cursor.execute(update_sql, update_vals)
+        conn.commit()
+
+        if cursor.rowcount > 0:
+            return True
+        else:
+            print(f"No rows updated for {goal_type} with ID {goal_id}")
+            return False
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return False
+    finally:
+        dbConnect.close()
+
+def destroy_user(user_id):
+    cursor, conn = dbConnect.connect()
+    try:
+       delete_sql = "DELETE FROM users WHERE username_id=%s"
+       delete_val= (user_id,)
+       cursor.execute(delete_sql, delete_val)
+       conn.commit()
+       if cursor.rowcount > 0:
+           return 200
+       else:
+           return 500
+    except mysql.connector.Error as err:
+        # print("Error:", err)
+        return f"Error: {err}"
+    finally:
+        dbConnect.close()
+
+def fetch_weekly_data(user_id):
+    cursor, conn = dbConnect.connect()
+    try:
+        cursor.execute("SELECT COUNT(*) AS total_goals FROM goals WHERE user_id = %s", (user_id,))
+        total_goals = cursor.fetchone()[0]
+        # print('total_goals', total_goals)
+
+        cursor.execute("SELECT COUNT(*) AS total_assigned_subgoals FROM subgoals WHERE goal_id IN (SELECT goal_id FROM goals WHERE user_id = %s)", (user_id,))
+        total_assigned_subgoals = cursor.fetchone()[0]
+        # print("total_assigned_subgoals", total_assigned_subgoals)
+
+        cursor.execute("SELECT COUNT(*) AS completed_subgoals FROM subgoals WHERE goal_id IN (SELECT goal_id FROM goals WHERE user_id = %s) AND status = 'done'", (user_id,))
+        completed_subgoals = cursor.fetchone()[0]
+        # print("completed_subgoals", completed_subgoals)
+
+        cursor.execute("SELECT COUNT(*) AS completed_sessions FROM daily_sessions WHERE user_id = %s AND status = 'done'", (user_id,))
+        completed_sessions = cursor.fetchone()[0]
+        # print("completed_sessions", completed_sessions)
+
+        cursor.execute("SELECT COUNT(*) AS total_sessions FROM daily_sessions WHERE user_id = %s", (user_id,))
+        total_sessions = cursor.fetchone()[0]
+        # print("total_sessions", total_sessions)
+
+        return total_goals, total_assigned_subgoals, completed_subgoals, completed_sessions, total_sessions
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+        return 0, 0, 0, 0 
+
+    finally:
+        dbConnect.close()
+
+def progress_bar(percentage, length=20):
+    percentage = min(percentage, 100)  # Prevent values over 100%
+    completed = int((percentage / 100) * length)
+    return "█" * completed + "░" * (length - completed) + f" {percentage:.1f}%"
