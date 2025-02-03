@@ -11,7 +11,7 @@ CREATE TABLE poll_mappings (
     goal_id INT,
     user_id BIGINT(20),  -- Match the data type of username_id
     FOREIGN KEY (goal_id) REFERENCES goals(goal_id),
-    FOREIGN KEY (user_id) REFERENCES users(username_id)✅
+    FOREIGN KEY (user_id) REFERENCES users(username_id)
 );
 SELECT CONSTRAINT_NAME
 FROM information_schema.KEY_COLUMN_USAGE
@@ -38,4 +38,4 @@ ALTER TABLE poll_mappings
 ADD CONSTRAINT poll_mappings_ibfk_2
 FOREIGN KEY (goal_id) REFERENCES goals(goal_id) 
 ON DELETE CASCADE;
-
+✅

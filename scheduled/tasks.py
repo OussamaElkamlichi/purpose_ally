@@ -2,7 +2,7 @@ import asyncio
 import mysql.connector
 import sys
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
-from dbAgent.agent import progress_bar, fetch_weekly_data
+from dbAgent.agent import fetch_weekly_data
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 
 def create_connection():
@@ -24,6 +24,42 @@ def create_connection():
     except mysql.connector.Error as err:
         print(f"Error while connecting to MySQL: {err}")
         return None, None
+    
+def progress_bar(percentage, length=20):
+    percentage = min(percentage, 100)  # Prevent values over 100%
+    completed = int((percentage / 100) * length)
+    return "█" * completed + "░" * (length - completed) + f" {percentage:.1f}%"
+
+def fetch_weekly_data(user_id):
+    conn, cursor = create_connection()
+    try:
+        cursor.execute("SELECT COUNT(*) AS total_goals FROM goals WHERE user_id = %s", (user_id,))
+        total_goals = cursor.fetchone()[0]
+        # print('total_goals', total_goals)
+
+        cursor.execute("SELECT COUNT(*) AS total_assigned_subgoals FROM subgoals WHERE goal_id IN (SELECT goal_id FROM goals WHERE user_id = %s)", (user_id,))
+        total_assigned_subgoals = cursor.fetchone()[0]
+        # print("total_assigned_subgoals", total_assigned_subgoals)
+
+        cursor.execute("SELECT COUNT(*) AS completed_subgoals FROM subgoals WHERE goal_id IN (SELECT goal_id FROM goals WHERE user_id = %s) AND status = 'done'", (user_id,))
+        completed_subgoals = cursor.fetchone()[0]
+        # print("completed_subgoals", completed_subgoals)
+
+        cursor.execute("SELECT COUNT(*) AS completed_sessions FROM daily_sessions WHERE user_id = %s AND status = 'done'", (user_id,))
+        completed_sessions = cursor.fetchone()[0]
+        # print("completed_sessions", completed_sessions)
+
+        cursor.execute("SELECT COUNT(*) AS total_sessions FROM daily_sessions WHERE user_id = %s", (user_id,))
+        total_sessions = cursor.fetchone()[0]
+        # print("total_sessions", total_sessions)
+
+        return total_goals, total_assigned_subgoals, completed_subgoals, completed_sessions, total_sessions
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+        return 0, 0, 0, 0 
+
+    finally:
+        conn.close()
 
 async def send_poll(bot, user_id, my_list):
     if not my_list:
