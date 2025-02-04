@@ -537,17 +537,18 @@ def mark_as_done(goal_type, goal_id, user_id):
 def destroy_user(user_id):
     cursor, conn = dbConnect.connect()
     try:
-       delete_sql = "DELETE FROM users WHERE username_id=%s"
-       delete_val= (user_id,)
-       cursor.execute(delete_sql, delete_val)
-       conn.commit()
-       if cursor.rowcount > 0:
-           return 200
-       else:
-           return 500
+        delete_sql = "DELETE FROM users WHERE username_id=%s"
+        delete_val = (user_id,)
+        cursor.execute(delete_sql, delete_val)
+        conn.commit()
+        
+        if cursor.rowcount > 0:
+            return 200
+        else:
+            return 500
     except mysql.connector.Error as err:
-        # print("Error:", err)
-        return f"Error: {err}"
+        print("Error:", err)
+        return 500  # ✅ Always return an integer
     finally:
         dbConnect.close()
 
@@ -601,3 +602,4 @@ def cron_report_seed(user_id, jobId):
         return False
     finally:
         dbConnect.close()
+

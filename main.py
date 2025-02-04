@@ -9,12 +9,12 @@ from dotenv import load_dotenv
 from telegram import (BotCommand, Bot,
                       Update, InlineKeyboardButton, InlineKeyboardMarkup)
 from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
-                          ContextTypes, ConversationHandler, MessageHandler, filters, PollAnswerHandler)
+                          ContextTypes, ConversationHandler, MessageHandler, filters, PollAnswerHandler, CallbackContext)
 from classes.userGoals import UserGoals
 from telegram.error import TelegramError
 from validators.timeValidator import is_valid_24_hour_time
 from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time, location_seed, get_user, fetch_polls,get_goals,mark_as_done, destroy_user, cron_report_seed, get_report_id
-from scheduled.tasks import task, weekly_cron
+from scheduled.tasks import task
 
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 app = Application.builder().token(TOKEN).build()
@@ -70,43 +70,49 @@ async def set_bot_description():
     except TelegramError as e:
         return f"Error setting description: {str(e)}"
 
-async def new_start(update, context):
+async def new_start(update: Update, context: CallbackContext):
+    """Handle the /start command or callback."""
     await update.callback_query.answer()
     user_id = update.callback_query.from_user.id
+    username = update.callback_query.from_user.username
+    user_type = update.callback_query.message.chat.type
+
+    # Delete cron jobs and user data
+    del_res = await destroy_cron(user_id)
     res = destroy_user(user_id)
-    if res == 200:
-        user_id = update.callback_query.from_user.id
-        username = update.callback_query.from_user.username
-        user_type = update.callback_query.message.chat.type
-        response_code, result = essential_seed(username, user_id, user_type, 0)
-        if response_code == 201: 
-            projectName = 'شريك الهمّة'
-            keyboard = [
-                [InlineKeyboardButton('🤖 تعريف شريك الهمة',
-                                      callback_data='identification')],
-                [InlineKeyboardButton('🤔 كيف أحدّد أهدافي',
-                                      callback_data='how_to_set_goals')],
-                [InlineKeyboardButton('📋 تسجيل أهدافي الخاصة',
-                                      callback_data='set_goals')],
-                # [InlineKeyboardButton('📚 الاطلاع على مسارات طلب العلم',
-                #                       callback_data='learning_tracks')],
-                # [InlineKeyboardButton('📥 الاتصال بنا', callback_data='contact_us')]
-            ]
 
-            reply_markup = InlineKeyboardMarkup(keyboard)
+    if res != 200 or del_res != 200:
+        await update.callback_query.message.reply_text("Failed to reset user data. Please try again later.")
+        return  # End the conversation
 
-            await update.callback_query.message.reply_text(
-                f'🌹السلام عليكم <b>{username}</b>\n'
-                '\n'
-                f'مرحباً بكم معنا في <b>{projectName}</b> رفيقكم في تحقيق أهدافكم وشريككم نحو مستوى وعي أرقى 🍃\n'
-                '\n'
-                ' اختر(ي) طلبك من القائمة أسفله واستعن بالله ولا تعجز✔️'
-                '\n',
-                parse_mode='HTML',
-                reply_markup=reply_markup,
-            )
-    else:
-        await update.callback_query.message.reply_text('X__X')
+    # Seed essential data for the user
+    response_code, result = essential_seed(username, user_id, user_type, 0)
+    if response_code != 201:
+        await update.callback_query.message.reply_text("Failed to initialize user data. Please try again later.")
+        return  # End the conversation
+
+    # Prepare the welcome message and keyboard
+    project_name = 'شريك الهمّة'
+    keyboard = [
+        [InlineKeyboardButton('🤖 تعريف شريك الهمة', callback_data='identification')],
+        [InlineKeyboardButton('🤔 كيف أحدّد أهدافي', callback_data='how_to_set_goals')],
+        [InlineKeyboardButton('📋 تسجيل أهدافي الخاصة', callback_data='set_goals')],
+        # [InlineKeyboardButton('📚 الاطلاع على مسارات طلب العلم', callback_data='learning_tracks')],
+        # [InlineKeyboardButton('📥 الاتصال بنا', callback_data='contact_us')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Send the welcome message
+    await update.callback_query.message.reply_text(
+        f'🌹السلام عليكم <b>{username}</b>\n'
+        '\n'
+        f'مرحباً بكم معنا في <b>{project_name}</b> رفيقكم في تحقيق أهدافكم وشريككم نحو مستوى وعي أرقى 🍃\n'
+        '\n'
+        ' اختر(ي) طلبك من القائمة أسفله واستعن بالله ولا تعجز✔️'
+        '\n',
+        parse_mode='HTML',
+        reply_markup=reply_markup,
+    )
 
 async def set_command_menu():
     await app.bot.set_my_commands(commands)
@@ -776,52 +782,59 @@ async def test_func(update, context):
 async def maingoal_achieved(update, context):
     user_id = update.message.from_user.id
     stt_code, res = await get_goals(user_id)  
+    print(res)
     # await update.message.reply_text(res)
-    message_text = "<b>أهدافك 🎯</b>\n\n"
-    keyboard = []
-    if stt_code == 200:
-        for main_goal, data in res.items():
-            if data['main_status'] != 'done':
-                message_text += f"<b>الهدف الرئيسي:</b> {main_goal}\n"
-
-                keyboard.append([InlineKeyboardButton(
-                    f"✅ تم إنجاز الهدف الرئيسي: {main_goal}",
-                    callback_data=f"done_main_{data['goal_id']}"
-                )])
-            else:
-                message_text += f"<b>الهدف الرئيسي:</b> {main_goal} ✅\n"
-
-                keyboard.append([InlineKeyboardButton(
-                    f"✅ تم إنجاز الهدف الرئيسي: {main_goal}",
-                    callback_data=f"done_main_{data['goal_id']}"
-                )])
-
-            for subgoal in data['subgoals']:
-                if subgoal['status'] != 'done':
-                    message_text += f"    • <b>الهدف الفرعي:</b> {subgoal['subgoal_title']} \n"
-
-                    keyboard.append([InlineKeyboardButton(
-                        f"✅ تم إنجاز الهدف الفرعي: {subgoal['subgoal_title']}",
-                        callback_data=f"done_sub_{subgoal['subgoal_id']}"
-                    )])
-                else:
-                    message_text += f"    • <b>الهدف الفرعي:</b> {subgoal['subgoal_title']} ✅\n"
-
-                    keyboard.append([InlineKeyboardButton(
-                        f"✅ تم إنجاز الهدف الفرعي: {subgoal['subgoal_title']}",
-                        callback_data=f"done_sub_{subgoal['subgoal_id']}"
-                    )])
-
-            message_text += "\n" 
-
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(
-            message_text,
-            reply_markup=reply_markup,
+    if(len(res) == 0):
+        await bot.send_message(user_id,
+            "<blockquote>يبدو أنه ليس لديك أية أهداف</blockquote>\n\n",
             parse_mode='HTML'
         )
     else:
-        print("X____x")
+        message_text = "<b>أهدافك 🎯</b>\n\n"
+        keyboard = []
+        if stt_code == 200:
+            for main_goal, data in res.items():
+                if data['main_status'] != 'done':
+                    message_text += f"<b>الهدف الرئيسي:</b> {main_goal}\n"
+
+                    keyboard.append([InlineKeyboardButton(
+                        f"✅ تم إنجاز الهدف الرئيسي: {main_goal}",
+                        callback_data=f"done_main_{data['goal_id']}"
+                    )])
+                else:
+                    message_text += f"<b>الهدف الرئيسي:</b> {main_goal} ✅\n"
+
+                    keyboard.append([InlineKeyboardButton(
+                        f"✅ تم إنجاز الهدف الرئيسي: {main_goal}",
+                        callback_data=f"done_main_{data['goal_id']}"
+                    )])
+
+                for subgoal in data['subgoals']:
+                    if subgoal['status'] != 'done':
+                        message_text += f"    • <b>الهدف الفرعي:</b> {subgoal['subgoal_title']} \n"
+
+                        keyboard.append([InlineKeyboardButton(
+                            f"✅ تم إنجاز الهدف الفرعي: {subgoal['subgoal_title']}",
+                            callback_data=f"done_sub_{subgoal['subgoal_id']}"
+                        )])
+                    else:
+                        message_text += f"    • <b>الهدف الفرعي:</b> {subgoal['subgoal_title']} ✅\n"
+
+                        keyboard.append([InlineKeyboardButton(
+                            f"✅ تم إنجاز الهدف الفرعي: {subgoal['subgoal_title']}",
+                            callback_data=f"done_sub_{subgoal['subgoal_id']}"
+                        )])
+
+                message_text += "\n" 
+
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text(
+                message_text,
+                reply_markup=reply_markup,
+                parse_mode='HTML'
+            )
+        else:
+            print("X____x")
 
 async def update_goals(update, context):
     user_id = update.callback_query.from_user.id
@@ -963,36 +976,42 @@ async def show_new_goals(update, context):
     )
 
 async def stop_cron(update, context):
+    await update.callback_query.answer()
     user_id = update.callback_query.from_user.id
     status_code, cron_time, job_Id = get_cron_time(user_id)
-    if status_code == 200:
-       if job_Id:
-        api_url = f"https://api.cron-job.org/jobs/{job_Id}" 
-        print("THE JOB ID THE JOB ID: ", job_Id)
-        api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
-        schedule = {
-            "job": {
-            "enabled": False,
-            "saveResponses": True,
-            }
-        }
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        response = requests.patch(api_url, headers=headers, data=json.dumps(schedule))
-        print("response", response)
-        if response.status_code == 200:
-            print("THE UPDATE TO DISBALED IS WORKING!")
-            res_code = await stop_report(user_id)
-            print('res coe for report', res_code)
-            if res_code == 200:
-                return 200, "Report Cron job successfully disabled", None
-            else:
-                return 500, "Report Cron job unsuccessfully disabled", None
-        else:
-            return response.status_code, "Cron job denied 1"
-
+    
+    if status_code != 200:
+        await update.callback_query.message.reply_text("خطأ X__X.")
+        return ConversationHandler.END
+    
+    if not job_Id:
+        await update.callback_query.message.reply_text("خطأ على مستوى السيرفير ")
+        return ConversationHandler.END
+    
+    # API call to disable the cron job
+    api_url = f"https://api.cron-job.org/jobs/{job_Id}" 
+    api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    schedule = {"job": {"enabled": False, "saveResponses": True}}
+    
+    response = requests.patch(api_url, headers=headers, json=schedule)
+    
+    if response.status_code != 200:
+        await update.callback_query.message.reply_text(f"يبدو أن هنالك خطأ ما  {response.status_code}")
+        return ConversationHandler.END
+    
+    # Stop the report
+    res_code = await stop_report(user_id)
+    if res_code != 200:
+        await update.callback_query.message.reply_text("لا يمكن إجراء هذه العملية في الوقت الحالي")
+        return ConversationHandler.END
+    
+    await update.callback_query.message.reply_text("تم إيقاف التنبيهات بنجاح")
+    return ConversationHandler.END
+        
 async def stop_report(user_id):
     status_code, job_Id = get_report_id(user_id)
     if status_code == 200:
@@ -1013,10 +1032,49 @@ async def stop_report(user_id):
         response_data = response.json()
 
         if response.status_code == 200:
-            return 200, "Report Cron job successfully disabled", job_Id
+            return 200
         else:
-            return response.status_code, "Cron job denied 1"
+            print(response.status_code, "Cron job denied 1")
+            return 500
 
+async def destroy_cron(user_id):
+    stt_code, report_job_id = get_report_id(user_id)
+    stat_code, cron_time ,job_id = get_cron_time(user_id)
+    if stt_code == 200: 
+        api_url = f"https://api.cron-job.org/jobs/{report_job_id}" 
+        api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        try:
+            response = requests.delete(api_url, headers=headers,)
+            if response.status_code == 200:
+                print("Report cron job deleted successfully!")
+                if stat_code == 200:
+                    api_url_2 = f"https://api.cron-job.org/jobs/{job_id}" 
+                    response2 = requests.delete(api_url_2, headers=headers,)
+                    if response2.status_code == 200:
+                        print("Cron job deleted successfully!")
+                        return 200
+                    else: 
+                        print(f"Failed to delete cron job. Status code: {response.status_code}")
+                        print(f"Response: {response.text}")
+                        return 200
+                else:
+                    print("Can't get the cron details from db")
+                    return 500
+            else:
+                print(f"Failed to delete report cron job. Status code: {response.status_code}")
+                print(f"Response: {response.text}")
+                return 500
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+            return 500
+    else:
+        print("Can't get the report cron job details from db")
+        return 200
+    
 async def learning_tracks(update, context):
     await update.callback_query.message.send_text('مسارات')
 
@@ -1056,7 +1114,7 @@ def main():
             CallbackQueryHandler(show_demo, pattern='show_demo'),
             CallbackQueryHandler(show_new_goals, pattern='show_new_goals'),
             CallbackQueryHandler(new_start, pattern='new_start'),
-            CallbackQueryHandler(stop_cron, pattern='stop_cron'),
+            CallbackQueryHandler(stop_cron, pattern='stop_cron_fire'),
         ],
         states={
             MAIN_GOAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, main_goal_req)],

@@ -63,7 +63,7 @@ def fetch_weekly_data(user_id):
 
 async def send_poll(bot, user_id, my_list):
     if not my_list:
-        keyboard = [[InlineKeyboardButton("موافق", callback_data="stop_cron")]]
+        keyboard = [[InlineKeyboardButton("موافق", callback_data="stop_cron_fire")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await bot.send_message(user_id,
             "<blockquote>🎉بارك الله! لقد أنجزت جميع أهدافك!</blockquote>\n\n"

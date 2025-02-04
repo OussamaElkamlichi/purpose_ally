@@ -19,4 +19,4 @@
 - Manage report cron job on edit state.✅
 - Stop report cron job issue: create new cron jobs.✅
 - Edit and delete goals.**⏳**
-- Delete cron job upon user new beginning. 
+- Delete cron job upon user new beginning. ✅
