@@ -761,6 +761,8 @@ async def create_report_cron(user_id):
                return response.status_code, "Failed to create cron job", None
         except Exception as e:
             return 500, f"An error occurred: {str(e)}", None
+    else:
+        print("WE CAN'T GET THE USER INFO")
 
 async def daily_goals_checking(update, context):
     poll_answer = update.poll_answer
