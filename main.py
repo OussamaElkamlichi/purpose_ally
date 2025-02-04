@@ -1117,6 +1117,7 @@ def main():
             CallbackQueryHandler(show_new_goals, pattern='show_new_goals'),
             CallbackQueryHandler(new_start, pattern='new_start'),
             CallbackQueryHandler(stop_cron, pattern='stop_cron_fire'),
+            CallbackQueryHandler(how_to_set_goals, pattern='learn_how')
         ],
         states={
             MAIN_GOAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, main_goal_req)],
