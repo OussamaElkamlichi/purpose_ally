@@ -13,7 +13,7 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
 from classes.userGoals import UserGoals
 from telegram.error import TelegramError
 from validators.timeValidator import is_valid_24_hour_time
-from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time, location_seed, get_user, retrieve_goals, update_daily_session, fetch_polls, get_poll_mappings_count,get_goals,mark_as_done, destroy_user, fetch_weekly_data, progress_bar
+from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time, location_seed, get_user, fetch_polls,get_goals,mark_as_done, destroy_user, cron_report_seed, get_report_id
 from scheduled.tasks import task, weekly_cron
 
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
@@ -498,13 +498,20 @@ async def edit_cron_time(update, context):
     cron_type = context.user_data.get('cron_settings')
     status_code, cron_time, job_Id = get_cron_time(user_id)
     stt, message, jobId = await cron_command(user_id,new_cron_time,job_Id)
-    print(stt)
-    print(message)
-    print(jobId)
     if stt == 200:
         res = cron_seed(user_id, cron_type, new_cron_time, jobId)
         if res == True:
-            await update.message.reply_text(f"تم التحديث إلى:  {new_cron_time}")
+            tatus_code, message, report_job_id = await create_report_cron(user_id)
+            if tatus_code == 200:
+                # print(f"Cron job created successfully for report! Job ID: {job_id}")
+                res_code = cron_report_seed(user_id, report_job_id)
+                if res_code:
+                   await update.message.reply_text(f"تم التحديث إلى:  {new_cron_time}")
+                else:
+                    await update.message.reply_text(
+                        "<blockquote>يبدو أن هنالك خطب ما ❌</blockquote>\n",
+                        parse_mode='HTML'
+                    )
         else:
             await update.message.reply_text(f" حدث خطأ : { status_code}")
     else:
@@ -522,7 +529,7 @@ async def cron_command(user_id, time, job_id):
 
         api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
 
-        command_url = f"https://ElkhamlichiOussama.pythonanywhere.com/task/{user_id}"  # Replace with the actual URL for your task
+        command_url = f"https://ElkhamlichiOussama.pythonanywhere.com/task/{user_id}"  
 
         time_obj = datetime.strptime(time, "%H:%M")
 
@@ -537,11 +544,11 @@ async def cron_command(user_id, time, job_id):
             "schedule": {
                 "timezone": user_timezone,
                 "expiresAt": 0,
-                "hours": [hour],      # Specific hour
-                "minutes": [minute],  # Specific minute
-                "mdays": [-1],        # Every day of the month
-                "months": [-1],       # Every month
-                "wdays": [-1]         # Every day of the week
+                "hours": [hour],      
+                "minutes": [minute],  
+                "mdays": [-1],        
+                "months": [-1],       
+                "wdays": [-1]         
             }
             }
         }
@@ -560,13 +567,12 @@ async def cron_command(user_id, time, job_id):
             else:
                 return 500, "No job_id is provided", None
         else:
-            # print(f"Failed to create cron job: {response.status_code}")
             return response.status_code, "Cron job denied 1"
        else:
-        api_url = f"https://api.cron-job.org/jobs/{job_id}"  # Replace with your actual job ID
+        api_url = f"https://api.cron-job.org/jobs/{job_id}" 
         api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
 
-        command_url = f"https://ElkhamlichiOussama.pythonanywhere.com/task/{user_id}"  # Replace with the actual URL for your task
+        command_url = f"https://ElkhamlichiOussama.pythonanywhere.com/task/{user_id}"
 
         time_obj = datetime.strptime(time, "%H:%M")
 
@@ -580,12 +586,12 @@ async def cron_command(user_id, time, job_id):
                 "saveResponses": True,
                 "schedule": {
                     "timezone": user_timezone,
-                    "expiresAt": 0,  # Adjust if needed
-                    "hours": [hour],  # Specific hour
-                    "minutes": [minute],  # Specific minute
-                    "mdays": [-1],  # Every day of the month
-                    "months": [-1],  # Every month
-                    "wdays": [-1]  # Every day of the week
+                    "expiresAt": 0,  
+                    "hours": [hour],  
+                    "minutes": [minute],
+                    "mdays": [-1], 
+                    "months": [-1], 
+                    "wdays": [-1] 
                 }
             }
         }
@@ -596,18 +602,12 @@ async def cron_command(user_id, time, job_id):
         }
 
         response = requests.patch(api_url, headers=headers, data=json.dumps(schedule))  # Changed to PATCH
-        # print(f"Response Status Code: {response.status_code}")
-        # print(f"Response Text: {response.text}")
-
 
         if response.status_code == 200:
             response_data = response.json() 
             print(response_data)
             return 200, "Cron job success", job_id
-            # return 200, "Cron job success", job_id
         else:
-            # Print the error if failed
-            # print(f"Failed to create cron job: {response.status_code} - {response.text}")
             return response.status_code, "Cron job denied 2", None
 
 async def old_goals(update, context):
@@ -663,7 +663,6 @@ async def handle_confirm_cron(update, context):
     await query.answer()
 
     if query.data == "edit_cron_launch":
-        # Transition to edit state
         await query.message.reply_text(
             "المرجو كتابة التوقيت بدقّة (مثال: 06:00)"
         )
@@ -678,13 +677,19 @@ async def handle_confirm_cron(update, context):
         if stt_code == 200:
             res = cron_seed(user_id, cron_type, time, jobId)   
             if res:
-                tatus_code, message, job_id = await create_report_cron(user_id)
+                tatus_code, message, report_job_id = await create_report_cron(user_id)
                 if tatus_code == 200:
-                    print(f"Cron job created successfully for report! Job ID: {job_id}")
-                    await query.message.reply_text(
-                        "<blockquote>وفقكم الله وأعانكم 🍃</blockquote>\n",
-                        parse_mode='HTML'
-                    )
+                    res_code = cron_report_seed(user_id, report_job_id)
+                    if res_code:
+                        await query.message.reply_text(
+                            "<blockquote>وفقكم الله وأعانكم 🍃</blockquote>\n",
+                            parse_mode='HTML'
+                        )
+                    else:
+                        await query.message.reply_text(
+                            "<blockquote>يبدو أن هنالك خطب ما ❌</blockquote>\n",
+                            parse_mode='HTML'
+                        )
                 else:
                     print(f"Failed to create cron job: {message}")
                     await query.message.reply_text(
@@ -718,11 +723,11 @@ async def create_report_cron(user_id):
                 "schedule": {
                     "timezone": user_timezone,
                     "expiresAt": 0,
-                    "hours": [6],      # 6 AM
-                    "minutes": [0],    # 0 minutes (on the hour)
-                    "mdays": [-1],     # Every day of the month (not needed for weekly scheduling)
-                    "months": [-1],    # Every month (not needed for weekly scheduling)
-                    "wdays": [4]       # Thursday (0=Sunday, 1=Monday, ..., 6=Saturday)
+                    "hours": [6],      
+                    "minutes": [0],    
+                    "mdays": [-1],     
+                    "months": [-1],    
+                    "wdays": [4]       
                 }
             }
         }
@@ -734,17 +739,20 @@ async def create_report_cron(user_id):
 
         try:
             response = requests.put(api_url, headers=headers, data=json.dumps(schedule))
+            print(f"Response Content: {response.text}")
             response_data = response.json()
-
             if response.status_code == 200:
-                job_id = response_data.get('jobId')
-                print("3HOK.")
-                if job_id:
-                    return 200, "Cron job created successfully for report", job_id
-                else:
-                    return 500, "No job_id provided in the response", None
+                try:
+                    response_data = response.json()
+                    job_id = response_data.get('jobId')
+                    if job_id:
+                        return 200, "Cron job created successfully for report", job_id
+                    else:
+                        return 500, "No job_id provided in the response", None
+                except ValueError:  # Handle non-JSON responses
+                    return 500, "Server returned an invalid JSON response", None
             else:
-                return response.status_code, "Failed to create cron job", None
+               return response.status_code, "Failed to create cron job", None
         except Exception as e:
             return 500, f"An error occurred: {str(e)}", None
 
@@ -754,7 +762,6 @@ async def daily_goals_checking(update, context):
     option_ids = poll_answer.option_ids
     user_id = poll_answer.user.id 
     stt_code, total, done, remaining_polls = fetch_polls(poll_id, option_ids)  
-    print("WHATSSSUUUUUUP",remaining_polls)
     if remaining_polls == 0: 
         await context.bot.send_message(
             chat_id=user_id,
@@ -763,7 +770,7 @@ async def daily_goals_checking(update, context):
 
 async def test_func(update, context):
     # await set_command_menu()
-    res = await weekly_cron(5264787237)
+    res = await task(5264787237)
     print("Task is launched!")
 
 async def maingoal_achieved(update, context):
@@ -844,7 +851,6 @@ async def add_goals(update,context):
     return EXTRA_MAIN_GOALS
 
 async def extra_maingoals(update, context):
-    print('maingoals reached!')
     user_id = update.message.from_user.id
     main_goal = update.message.text
 
@@ -959,56 +965,55 @@ async def show_new_goals(update, context):
 async def stop_cron(update, context):
     user_id = update.callback_query.from_user.id
     status_code, cron_time, job_Id = get_cron_time(user_id)
-    stt_code, result= get_user(user_id)
-    user_timezone = result[0][5]
     if status_code == 200:
-       print('ok1')
        if job_Id:
-        print("JOB ID:", job_Id)
-        print("USER ID:", user_id)
-        api_url = "https://api.cron-job.org/jobs"
-
+        api_url = f"https://api.cron-job.org/jobs/{job_Id}" 
+        print("THE JOB ID THE JOB ID: ", job_Id)
         api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
-
-        command_url = f"https://ElkhamlichiOussama.pythonanywhere.com/task/{user_id}"  
-
-        time_obj = datetime.strptime(cron_time, "%H:%M")
-
-        hour = time_obj.hour
-        minute = time_obj.minute
-
         schedule = {
             "job": {
-            "url": command_url,
             "enabled": False,
             "saveResponses": True,
-            "schedule": {
-                "timezone": user_timezone,
-                "expiresAt": 0,
-                "hours": [hour],      # Specific hour
-                "minutes": [minute],  # Specific minute
-                "mdays": [-1],        # Every day of the month
-                "months": [-1],       # Every month
-                "wdays": [-1]         # Every day of the week
-            }
             }
         }
-
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
-        response = requests.put(api_url, headers=headers, data=json.dumps(schedule))
-        # print('ok3')
-        response_data = response.json()
-        # print("cron res:", response_data)
-        print("REACHED", response.status_code)
+        response = requests.patch(api_url, headers=headers, data=json.dumps(schedule))
+        print("response", response)
         if response.status_code == 200:
-            job_id = response_data['jobId']
-            if job_id:
-                return 200, "Cron job successfully disabled", job_id
+            print("THE UPDATE TO DISBALED IS WORKING!")
+            res_code = await stop_report(user_id)
+            print('res coe for report', res_code)
+            if res_code == 200:
+                return 200, "Report Cron job successfully disabled", None
             else:
-                return 500, "No job_id is provided for disabling the cron", None
+                return 500, "Report Cron job unsuccessfully disabled", None
+        else:
+            return response.status_code, "Cron job denied 1"
+
+async def stop_report(user_id):
+    status_code, job_Id = get_report_id(user_id)
+    if status_code == 200:
+       if job_Id:
+        api_url = f"https://api.cron-job.org/jobs/{job_Id}" 
+        api_key = "y7C+Yb8a55Zgb6883Q88eUfyEIUNYZhOJhIlyIfbhUI="
+        schedule = {
+            "job": {
+            "enabled": False,
+            "saveResponses": True
+            },
+        }
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        response = requests.patch(api_url, headers=headers, data=json.dumps(schedule))
+        response_data = response.json()
+
+        if response.status_code == 200:
+            return 200, "Report Cron job successfully disabled", job_Id
         else:
             return response.status_code, "Cron job denied 1"
 

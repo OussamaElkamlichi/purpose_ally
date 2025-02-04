@@ -14,4 +14,9 @@
 - Add new main goals through states ✅.
 - Stop the cron job polls when user's goals are satisfied✅.
 - CRUD commands in the menu✅.
-- Statistics📊.
+- Statistics📊 ✅.
+- Store report cron job id.✅
+- Manage report cron job on edit state.✅
+- Stop report cron job issue: create new cron jobs.✅
+- Edit and delete goals.**⏳**
+- Delete cron job upon user new beginning. 

@@ -280,6 +280,24 @@ def get_cron_time(user_id):
     finally:
         dbConnect.close()
 
+def get_report_id(user_id):
+    cursor, conn = dbConnect.connect()
+    try:
+        request = "SELECT job_id FROM reports WHERE user_id=%s"
+        request_values = (user_id,)
+        cursor.execute(request,request_values)
+        res = cursor.fetchone()
+        if res:
+            return 200, res[0]
+        else:
+            return 404, None
+    except Exception as e:
+        print(f"Erro: {e} ")
+        conn.rollback()
+        return 500, False
+    finally:
+        dbConnect.close()
+
 def location_seed(user_id,location, timezone):
     cursor, conn = dbConnect.connect()
     try:
@@ -568,3 +586,18 @@ def progress_bar(percentage, length=20):
     percentage = min(percentage, 100)  # Prevent values over 100%
     completed = int((percentage / 100) * length)
     return "█" * completed + "░" * (length - completed) + f" {percentage:.1f}%"
+
+def cron_report_seed(user_id, jobId):
+    cursor, conn = dbConnect.connect()
+    try:
+        cron_sql = "INSERT INTO reports (user_id, job_id) VALUES (%s, %s)"
+        cron_vals = (user_id, jobId)
+        cursor.execute(cron_sql, cron_vals)
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception as e:
+        print(f"Error: {e}")
+        conn.rollback()
+        return False
+    finally:
+        dbConnect.close()

@@ -39,3 +39,11 @@ ADD CONSTRAINT poll_mappings_ibfk_2
 FOREIGN KEY (goal_id) REFERENCES goals(goal_id) 
 ON DELETE CASCADE;
 ✅
+CREATE TABLE reports (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT(20),
+    job_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(username_id) ON DELETE CASCADE
+);
+
