@@ -15,7 +15,13 @@ from telegram.error import TelegramError
 from validators.timeValidator import is_valid_24_hour_time
 from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time, location_seed, get_user, fetch_polls,get_goals,mark_as_done, destroy_user, cron_report_seed, get_report_id
 from scheduled.tasks import task
+from flask import Flask
 
+my_app = Flask(__name__)
+
+@my_app.route('/')
+def home():
+    return "Bot is running!"
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 app = Application.builder().token(TOKEN).build()
 dir_path = os.getcwd()
@@ -1142,3 +1148,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    my_app.run(host='0.0.0.0', port=8080)
