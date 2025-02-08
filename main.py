@@ -1077,11 +1077,12 @@ async def destroy_cron(user_id):
         return 200
     
 async def edit_goals(update, context):
-    keyboard = [InlineKeyboardButton("تعديل/حذف نص الأهداف", callback_data="edit_op")],
+    keyboard = [[InlineKeyboardButton("تعديل/حذف نص الأهداف", callback_data="edit_op")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.callback_query.message.reply_text(
+    
+    await update.message.reply_text(
         '<blockquote></blockquote>\n'
-        f"\n",
+        f"تفضل 🍃\n",
         reply_markup=reply_markup,
         parse_mode='HTML'
     )
