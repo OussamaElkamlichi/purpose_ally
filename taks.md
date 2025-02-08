@@ -44,9 +44,11 @@
 
 - [x] Delete cron job upon user's new beginning.
 
-- [⏳] Edit and delete goals.
+- [X] Edit and delete goals.
 
-- [ ] Handle reports cron job on edit action.  
+- [ ] Handle reports cron job on edit action.
+
+- [ ] Move bot token to .env  
 ---
 ### Notes:
 
