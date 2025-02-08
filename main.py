@@ -15,13 +15,6 @@ from telegram.error import TelegramError
 from validators.timeValidator import is_valid_24_hour_time
 from dbAgent.agent import essential_seed, show_demo_db, edit_prep, updateGoal, cron_seed, deleteGoal, get_cron_time, location_seed, get_user, fetch_polls,get_goals,mark_as_done, destroy_user, cron_report_seed, get_report_id
 from scheduled.tasks import task
-from flask import Flask
-
-my_app = Flask(__name__)
-
-@my_app.route('/')
-def home():
-    return "Bot is running!"
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 app = Application.builder().token(TOKEN).build()
 dir_path = os.getcwd()
@@ -1083,6 +1076,16 @@ async def destroy_cron(user_id):
         print("Can't get the report cron job details from db")
         return 200
     
+async def edit_goals(update, context):
+    keyboard = [InlineKeyboardButton("تعديل/حذف نص الأهداف", callback_data="edit_op")],
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.callback_query.message.reply_text(
+        '<blockquote></blockquote>\n'
+        f"\n",
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
+
 async def learning_tracks(update, context):
     await update.callback_query.message.send_text('مسارات')
 
@@ -1109,6 +1112,7 @@ def main():
             CommandHandler("test", test_func),
             CommandHandler("goal_achieved", maingoal_achieved),
             CommandHandler("add_goals", add_goals),
+            CommandHandler("edit_goals", edit_goals),
             CallbackQueryHandler(set_goals, pattern='set_goals'),
             CallbackQueryHandler(edit_op, pattern='edit_op'),
             CallbackQueryHandler(edit_goal_selection, pattern=".*\*\*\*.*"),
