@@ -48,6 +48,8 @@
 
 - [ ] Handle reports cron job on edit action.
 
+- [ ] Create a function that sends message to a specific user.
+
 - [ ] Move bot token to .env  
 ---
 ### Notes:

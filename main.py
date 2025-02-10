@@ -18,8 +18,8 @@ from scheduled.tasks import task
 TOKEN = "7858277817:AAGt_RDeo8KcoIpu1ZOXZ8Lm2T7S1aQ9ca0"
 app = Application.builder().token(TOKEN).build()
 dir_path = os.getcwd()
-IDENTIFICATION, HOW_TO_SET_GOALS, SET_GOALS, SEEK_KNOWLEDGE, CONTACT_US, MAIN_GOAL, SUB_GOALS, EDIT_GOAL, USER_TIMEZONE, SET_CRON, SET_CRON_TIME, SET_CRON_WEEKDAY , EDIT_CRON_TIME, VALIDATE_CRON, CONFIRM_CRON_TIME,EXTRA_MAIN_GOALS, EXTRA_SUB_GOALS= range(
-    17)
+IDENTIFICATION, HOW_TO_SET_GOALS, SET_GOALS, SEEK_KNOWLEDGE, CONTACT_US, MAIN_GOAL, SUB_GOALS, EDIT_GOAL, USER_TIMEZONE, SET_CRON, SET_CRON_TIME, SET_CRON_WEEKDAY , EDIT_CRON_TIME, VALIDATE_CRON, CONFIRM_CRON_TIME,EXTRA_MAIN_GOALS, EXTRA_SUB_GOALS, HIDDEN_FUNC= range(
+    18)
 
 commands = [
     BotCommand("start", 'البدأ'),
@@ -1087,6 +1087,23 @@ async def edit_goals(update, context):
         parse_mode='HTML'
     )
 
+async def hidden_func(update, context):
+    user_id = update.message.from_user.id
+    await update.message.reply_text("Transmitted")
+    return HIDDEN_FUNC
+async def hidden_sender(update, context):
+    targeted_id = update.message.text
+    report_message = (
+    "<blockquote><b>السلام عليكم،🍃</b></blockquote> \n"
+    "🎯 يبدو أنكم لم تكملوا إدخال الأهداف \n\n"
+    "🤖 يمكنكم استئناف العملية عبر الضغط على /start \n\n"
+    "😊 نعتذر في حالة حصول خطأ، شكر الله لكم \n\n"
+    )
+    await bot.send_message(chat_id=targeted_id, text=report_message, parse_mode="HTML")
+    return ConversationHandler.END
+
+        
+        
 async def learning_tracks(update, context):
     await update.callback_query.message.send_text('مسارات')
 
@@ -1114,6 +1131,7 @@ def main():
             CommandHandler("goal_achieved", maingoal_achieved),
             CommandHandler("add_goals", add_goals),
             CommandHandler("edit_goals", edit_goals),
+            CommandHandler("hidden_func", hidden_func),
             CallbackQueryHandler(set_goals, pattern='set_goals'),
             CallbackQueryHandler(edit_op, pattern='edit_op'),
             CallbackQueryHandler(edit_goal_selection, pattern=".*\*\*\*.*"),
@@ -1142,6 +1160,7 @@ def main():
             SET_CRON_WEEKDAY: [CallbackQueryHandler(set_cron, pattern='weekday')],
             EXTRA_MAIN_GOALS: [MessageHandler(filters.TEXT & ~filters.COMMAND, extra_maingoals)],
             EXTRA_SUB_GOALS: [MessageHandler(filters.TEXT & ~filters.COMMAND, extra_subgoals)],
+            HIDDEN_FUNC: [MessageHandler(filters.TEXT & ~filters.COMMAND, hidden_sender)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
     )
