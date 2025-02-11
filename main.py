@@ -326,9 +326,12 @@ async def edit_op(update, context):
     user_id = update.callback_query.from_user.id
     goals_list = edit_prep(user_id)
 
+    # Store goals_list in context for later retrieval
+    context.user_data['goals_list'] = goals_list
+
     keyboard = [
         [InlineKeyboardButton(
-            goal["text"], callback_data=f'{goal["type"]}***{goal["id"]}***{goal["text"]}')]
+            goal["text"], callback_data=f'{goal["type"]}***{goal["id"]}')]
         for goal in goals_list
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -343,28 +346,40 @@ async def edit_goal_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.answer()
 
     if "***" in query.data:
-        goal_type, goal_id, goal_text = query.data.split("***")
-        context.user_data['goal_type'] = goal_type
-        context.user_data['goal_id'] = goal_id
-        context.user_data['old_goal_text'] = goal_text
+        goal_type, goal_id = query.data.split("***")
+        goals_list = context.user_data.get('goals_list', [])
 
-        await query.edit_message_text(
-            f'<blockquote>تم اختيار 🎯</blockquote>\n{goal_text}\n\n'
-            'اكتب(ي) نص الهدف صحيحاً \n'
-            'اكتب(ي) "حذف" لحذف الهدف\n\n'
-            '<b>ملاحظة: </b> حذف الهدف الرئيسي يتبعه حذف الأهداف الفرعية \n',
-            parse_mode='HTML'
-        )
-        return EDIT_GOAL
+        # Find the goal_text using goal_id
+        goal_text = None
+        for goal in goals_list:
+            if str(goal["id"]) == goal_id:
+                goal_text = goal["text"]
+                break
+
+        if goal_text:
+            context.user_data['goal_type'] = goal_type
+            context.user_data['goal_id'] = goal_id
+            context.user_data['old_goal_text'] = goal_text
+
+            await query.edit_message_text(
+                f'<blockquote>تم اختيار 🎯</blockquote>\n{goal_text}\n\n'
+                'اكتب(ي) نص الهدف صحيحاً \n'
+                'اكتب(ي) "حذف" لحذف الهدف\n\n'
+                '<b>ملاحظة: </b> حذف الهدف الرئيسي يتبعه حذف الأهداف الفرعية \n',
+                parse_mode='HTML'
+            )
+            return EDIT_GOAL
+        else:
+            await query.edit_message_text("حدث خطأ: لم يتم العثور على الهدف المحدد.")
+            return ConversationHandler.END
 
 async def edit_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     new_goal_text = update.message.text
     goal_type = context.user_data.get('goal_type')
     goal_id = context.user_data.get('goal_id')
     old_goal_text = context.user_data.get('old_goal_text')
 
-    if new_goal_text in ["حذف","حدف"]:
+    if new_goal_text in ["حذف", "حدف"]:
         res = deleteGoal(update.message.from_user.id,
                         new_goal_text, goal_type, goal_id, old_goal_text)
         await update.message.reply_text(res, parse_mode="HTML")

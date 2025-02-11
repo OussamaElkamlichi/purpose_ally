@@ -46,11 +46,15 @@
 
 - [X] Edit and delete goals.
 
+- [X] Create a function that sends message to a specific user.
+  
 - [ ] Handle reports cron job on edit action.
 
-- [ ] Create a function that sends message to a specific user.
+- [ ] Edit button throws an error.
 
 - [ ] Move bot token to .env  
+
+- [ ] Fix report cron job creation issue. 
 ---
 ### Notes:
 
